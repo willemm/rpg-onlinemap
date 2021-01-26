@@ -44,18 +44,17 @@ io.on('connection', function(socket) {
                 lastpageid = pageid
                 pageid = pageid.toString(36)
                 pages[pageid] = {
-                    id: pageid,
-                    token: token,
-                    title: '',
-                    active: false,
+                    id:      pageid,
+                    token:   token,
+                    title:   '',
+                    active:  false,
                     markers: {},
-                    areas: {}
+                    areas:   {}
                 }
                 socket.emit('pages', pages)
-                socket.emit('gotopage', pageid)
+                socket.emit('page', pages[pageid])
             })
             socket.on('movemarker', (marker) => {
-                // console.log('admin movemarker', marker)
                 if (!pages[marker.page]) { return }
                 if (pages[marker.page].markers[marker.id]) {
                     pages[marker.page].markers[marker.id].imx = marker.imx
@@ -77,14 +76,16 @@ io.on('connection', function(socket) {
                 if (!pages[zoom.page]) { return }
                 pages[zoom.page].zoom = zoom
                 io.emit('zoom', zoom)
+                for (const m in pages[zoom.page].markers) {
+                    io.emit('movemarker', pages[zoom.page].markers[m])
+                }
             })
             socket.emit('pages', pages)
-            socket.emit('gotopage', currentplayerpage)
+            socket.emit('page', pages[currentplayerpage])
         } else {
             for (const p in pages) {
                 if (pages[p].active && pages[p].token == secret) {
                     socket.on('movemarker', (marker) => {
-                        // console.log('player movemarker', marker)
                         if (!pages[marker.page]) { return }
                         if (pages[marker.page].markers[marker.id] && pages[marker.page].markers[marker.id].player) {
                             pages[marker.page].markers[marker.id].imx = marker.imx
@@ -100,6 +101,10 @@ io.on('connection', function(socket) {
         }
     })
     socket.on('disconnect', () => {
-        console.log('Disconnect socket '+socket.id)
+        if (admin) {
+            console.log('Disconnect Admin socket '+socket.id)
+        } else {
+            console.log('Disconnect socket '+socket.id)
+        }
     })
 })

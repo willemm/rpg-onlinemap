@@ -20,32 +20,42 @@ function setup_socket(socket)
     socket.on('page', function(page) {
         console.log('page', page)
         currentpageid = page.id
+        show_page(page)
     })
     socket.on('pages', function(pages) {
         console.log('pages', pages)
     })
-    socket.on('gotopage', function(pageid) {
-        console.log('gotopage', pageid)
-        currentpageid = pageid
-    })
-    socket.on('movemarker', function(marker) {
-        console.log('movemarker', marker)
-        if (marker.page != currentpageid) { return }
-        var markerdiv = $('#markers .marker[myid="'+marker.id+'"]')
-        if (!markerdiv.length) {
-            markerdiv = $('<div mypage="'+marker.page+'" myid="'+marker.id+'" class="'+marker.cls+'">'+marker.text+'</div>').appendTo('#markers')
-        }
-        var x = marker.imx * zoompos.w + zoompos.x
-        var y = marker.imy * zoompos.h + zoompos.y
-        markerdiv.css({left:x+'px',top:y+'px'})
-        console.log('marker', markerdiv, x, y)
-    })
+    socket.on('movemarker', movemarker)
     socket.on('zoom', function(zoom) {
-        console.log('zoom', zoom)
         if (zoom.page == currentpageid) {
             set_zoom(zoom)
         }
     })
+}
+
+function movemarker(marker)
+{
+    if (marker.page != currentpageid) { return }
+    if (!$('#zoompopup').is(':visible')) { return }
+    var markerdiv = $('#markers .marker[myid="'+marker.id+'"]')
+    if (!markerdiv.length) {
+        markerdiv = $('<div mypage="'+marker.page+'" myid="'+marker.id+'" class="'+marker.cls+'">'+marker.text+'</div>').appendTo('#markers')
+    }
+    var x = marker.imx * zoompos.w + zoompos.x
+    var y = marker.imy * zoompos.h + zoompos.y
+    markerdiv.css({left:x+'px',top:y+'px'})
+}
+
+function show_page(page)
+{
+    if (page.zoom) {
+        set_zoom(page.zoom)
+    }
+    if (page.markers) {
+        for (mr in page.markers) {
+            movemarker(page.markers[mr])
+        }
+    }
 }
 
 function load() {
@@ -423,10 +433,10 @@ function set_zoom(sp) {
     $('#zoom img').css({left:ix+'px', top:iy+'px', width: iw+'px', height: ih+'px'})
     $('#zoompopup').show()
     $('#selector').hide()
-    var zpo = $('#zoompopup').offset()
+    var zpo = $('#zoom img').offset()
     zoompos = {
-        x: zoomx + ix + zpo.left,
-        y: zoomy + iy + zpo.top,
+        x: zpo.left,
+        y: zpo.top,
         w: iw,
         h: ih
     }
@@ -441,11 +451,14 @@ function hide_zoom()
     eraseData('mapareas')
     eraseData('mapeffects')
     */
-    $('#selector').hide()
-    $('#zoompopup').hide()
-    $('#markers').html('')
-    $('#zoomoverlay div.aoe').remove()
-    $('#area-effects tr.aoe').remove()
+    if ($('#zoompopup').is(':visible')) {
+        $('#selector').hide()
+        $('#zoompopup').hide()
+        $('#markers').html('')
+        $('#zoomoverlay div.aoe').remove()
+        $('#area-effects tr.aoe').remove()
+        socket.emit('zoom', { page: currentpageid, x: 0, y: 0, w: 0, h: 0 })
+    }
 }
 
 /*
