@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>de Crebba - op naar Haven!</title>
+	<meta name="robots" content="noindex, nofollow">
+	<link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.0/jquery.min.js"></script>
+    <script src="socket.io/socket.io.js"></script>
+</head>
+<body>
+
+<div id="initiative">
+
+	<div id="ini-title">Initiative <hr> </div>
+
+	<table id="characters">
+		
+		<tr class="pc"><td>&nbsp;</td>	<td>Jan (Frances)	</td></tr> 
+		<tr class="pc"><td>&nbsp;</td>	<td>Moth (Willem)	</td></tr>
+		<tr class="pc"><td>&nbsp;</td>	<td>Dadmic (Rudi)	</td></tr>
+		
+		<tr><td>&nbsp;</td>	<td>	</td></tr>	
+		<tr class="pc"><td>&nbsp;</td>	<td>Roos (Emma)		</td></tr>
+		<tr class="pc"><td>&nbsp;</td>	<td>Boph (Jasper)	</td></tr>
+
+		<!--
+		<tr class="npc1"><td>&nbsp; 1</td>	<td>Sahuagin     </td></tr>
+		<tr class="npc2"><td>&nbsp; x</td>	<td>Sahuagin Champion     </td></tr>
+		<tr class="npc3"><td>&nbsp; x</td>	<td>Sahuagin Coral Smasher     </td></tr>
+		<tr class="npc4"><td>&nbsp; x</td>	<td>Sahuagin Priestess    </td></tr>
+		<tr class="npc5"><td>&nbsp; x</td>	<td>Dragon     </td></tr>
+		-->
+
+		<tr><td width= 50px;>&nbsp;</td><td width= 250px;>&nbsp;</td></tr>
+	</table>
+	
+	<div id="ini-dead">Here be Dead Monsters</div>
+	
+	    <table id="area-effects"> 
+        <tr>
+            <td class="area-effects area-square" colspan="2">
+                <div>red</div>
+                <div>orange</div>
+                <div>yellow</div>
+                <div>green</div>
+                <div>cyan</div>
+                <div>blue</div>
+                <div>magenta</div>
+                <div>lightgray</div>
+                <div>gray</div>
+                <div>black</div>
+            </td>
+        </tr>
+        <tr>
+            <td class="area-effects area-circle" colspan="2">
+                <div>red</div>
+                <div>orange</div>
+                <div>yellow</div>
+                <div>green</div>
+                <div>cyan</div>
+                <div>blue</div>
+                <div>magenta</div>
+                <div>lightgray</div>
+                <div>gray</div>
+                <div>black</div>
+            </td>
+        </tr>
+    </table>
+	
+	<div id="ini-footer"><center>
+	<hr>
+	made by Diona en Willem
+	</center></div>
+	
+</div>
+
+<div id="zoompopup">
+ <div id="zoomclose">X</div>
+ <div id="zoom"></div>
+ <div id="zoomoverlay"></div>
+</div>
+
+<div id="map">
+<img src="maps/Crebba_overworld.png" height="900px">
+<div id="selector"></div>
+
+</div>
+<!--
+<img src="maps/Crebba_overworld.png" height="2600px">
+<img src="maps/Lame_met_varkens.jpg" height="900px">
+-->
+
+
+<div id="markers"></div>
+
+</body>
+<script src="zoom.js"></script>
+</html>

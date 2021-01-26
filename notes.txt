@@ -10,6 +10,7 @@ Admin:
 - editpage: Set stuff like title, etc
 - uploadimage: For uploading the map on a page
 - initiative: For setting the initiative list
+- zoompage: Set zoomed in partition of map
 
 Player:
 - movepawn: Move pawns around the page (some can only be moved by admins)
@@ -24,5 +25,6 @@ Page creation also shows a player-token.  DM sends this token to the players
 Players go to webpage and fill in token to log in (token in URL? Maybe security issue.  Do hash-tokens get sent to the server?)
 Webpage shows one of the map pages to logged in players
 Players can move player pawns and AOEs
+DM can zoom in on pages and player pages follow zoom setting
 DM can make different pages and push 'take players to this page' button
 
