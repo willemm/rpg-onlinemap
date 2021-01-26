@@ -18,12 +18,12 @@ function setup_socket(socket)
         document.body.className = 'disconnected'
     })
     socket.on('page', function(page) {
-        console.log('page', page)
+        // console.log('page', page)
         currentpageid = page.id
         show_page(page)
     })
     socket.on('pages', function(pages) {
-        console.log('pages', pages)
+        // console.log('pages', pages)
     })
     socket.on('marker', set_marker)
     socket.on('area', set_area)
@@ -34,6 +34,10 @@ function setup_socket(socket)
         if (zoom.page == currentpageid) {
             set_zoom(zoom)
         }
+    })
+    socket.on('map', function(mapname) {
+        console.log('map', mapname)
+        $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
     })
 }
 
@@ -49,7 +53,7 @@ function get_uid()
 
 function set_effect(effect)
 {
-    console.log('effect', effect)
+    // console.log('effect', effect)
     if (effect.page != currentpageid) { return }
     if (!$('#zoompopup').is(':visible')) { return }
     var effecttr = $('#area-effects .aoe[data-id="'+effect.id+'"]')
@@ -67,7 +71,7 @@ function set_effect(effect)
 
 function set_area(area)
 {
-    console.log('area', area)
+    // console.log('area', area)
     if (area.page != currentpageid) { return }
     if (!$('#zoompopup').is(':visible')) { return }
     var areadiv = $('#zoomoverlay .aoe[data-id="'+area.id+'"]')
@@ -124,17 +128,65 @@ function load() {
     $('#characters').on('mousedown', function(e) { if (e.which == 1) return false })
     $('#characters').on('mousedown', 'tr', start_marker)
     $('#markers').on('mousedown', '.marker', drag_marker)
-    /*
-    set_zoom(getData('mapzoom'))
-    set_markers(getData('mapmarkers'))
-    set_areas(getData('mapareas'))
-    set_effects(getData('mapeffects'))
-    */
     set_aoe_styles()
     $('td.area-effects').on('click','div', add_aoe)
     $('#area-effects').on('click','tr.aoe td.aoe-close', close_aoe)
     $('#area-effects').on('input','input', oninput_effect)
     $('#area-effects').on('change','input', emit_effect)
+
+    $('#fileupload').on('change','input[type="file"].mapimage', upload_map)
+
+    $('#fileupload').on('input','input.mapnamenew', new_maprow)
+    $('#fileupload').on('change', 'input.active', select_mapfile)
+}
+
+function select_mapfile(e)
+{
+    var tr = $(this).closest('tr')
+    socket.emit('map', { page: tr.attr('data-page'), name: tr.attr('data-name')})
+}
+
+function new_maprow(e)
+{
+    if ($(this).val()) {
+        var tr = $(this).closest('tr')
+        tr.append('<td><label><div class="uploadbtn">browse</div>'+
+            '<input name="mapimage" type="file" class="mapimage" value="Map" '+
+            'accept=".jpg,.png,.gif,image/*"></label></td>')
+        $(this).removeClass('mapnamenew').addClass('mapname')
+        $(this).closest('tbody').append('<tr class="mapupload" data-name="">'+
+            '<td><input class="active" type="radio" name="mapactive"></td>'+
+            '<td><input class="mapnamenew" type="text" placeholder="New Map Name"></td>'+
+            '</tr>')
+        tr.attr('data-name', $(this).val())
+    }
+}
+
+function upload_map(e)
+{
+    var fileinp = $(this)
+    var filetr = fileinp.closest('tr')
+    var mapname = filetr.attr('data-name')
+    if (!mapname) { return }
+    var file = this.files[0]
+    var fileext = file.name.replace(/.*\./,'')
+    var filename = filetr.find('input.mapname').val()+'.'+fileext
+    filetr.attr('data-name', filename)
+    filetr.attr('data-page', currentpageid)
+    if (file.size > 10000000) {
+        // alert('File '+file.name+' too big: '+file.size)
+        filetr.addClass('failed')
+        return
+    }
+    filetr.removeClass('failed').addClass('uploading')
+    var active = filetr.find('input.active').is(':checked')
+    var reader = new FileReader()
+    reader.onload = function(e) {
+        var data = e.target.result
+        socket.emit('mapupload', {page: currentpageid, name: filename, data: data, active: active})
+        filetr.removeClass('uploading')
+    }
+    reader.readAsBinaryString(file)
 }
 
 function set_aoe_styles()
@@ -225,14 +277,14 @@ function close_aoe()
 
 function remove_area(area)
 {
-    console.log('remove_area', area)
+    // console.log('remove_area', area)
     if (area.page != currentpageid) { return }
     $('#zoomoverlay .aoe[data-id="'+area.id+'"]').remove()
 }
 
 function remove_effect(effect)
 {
-    console.log('remove_effect', effect)
+    // console.log('remove_effect', effect)
     var effecttr = $('#area-effects .aoe[data-id="'+effect.id+'"]')
     effecttr.remove()
     $('#area-effects div.selected').removeClass('selected')
@@ -351,74 +403,6 @@ function emit_area(aoe)
     })
 }
 
-function save_areas()
-{
-    /*
-    var areas = $('#zoomoverlay .aoe').map(function() {
-        var e = $(this)
-        return [ e.attr('class'), e.css('left'), e.css('top'), e.css('width'), e.css('height'), e.attr('data-color') ]
-    }).get()
-    setData('mapareas', areas)
-    */
-}
-
-/*
-function set_areas(areas)
-{
-    if (!areas) return
-    var html = []
-    for (var i = 0; i < areas.length; i += 6) {
-        html.push('<div class="',areas[i+0],'" style="left:',areas[i+1],'; top:',areas[i+2],'; width:',areas[i+3],'; height:',areas[i+4],'; background-color:',areas[i+5],';" data-color="',areas[i+5],'"></div>')
-    }
-    $('#zoomoverlay').append(html.join(''))
-}
-*/
-
-function save_effects()
-{
-    /*
-    var effects = $('#area-effects tr.aoe').map(function() {
-        var e = $(this)
-        return [ e.attr('data-color'), e.find('input').val() ]
-    }).get()
-    setData('mapeffects', effects)
-    */
-}
-
-function set_effects(effects)
-{
-    if (!effects) return
-    var html = []
-    for (var i = 0; i < effects.length; i += 2) {
-        html.push('<tr class="aoe" data-color="',effects[i],'">')
-        html.push('<td class="aoe-text" style="background-color:',effects[i],';">')
-        html.push('<input type="text" placeholder="Area of Effect" value="',effects[i+1],'"></td>')
-        html.push('<td class="aoe-close">X</td></tr>')
-    }
-    $('#area-effects').prepend(html.join(''))
-}
-
-function save_markers()
-{
-    /*
-    var markers = $('#markers .marker').map(function() {
-        var e = $(this)
-        return [ e.attr('class'), e.css('left'), e.css('top'), e.text() ]
-    }).get()
-    setData('mapmarkers', markers)
-    */
-}
-
-function set_markers(markers)
-{
-    if (!markers) return
-    var html = []
-    for (var i = 0; i < markers.length; i += 4) {
-        html.push('<div class="',markers[i+0],'" style="left:',markers[i+1],'; top:',markers[i+2],';">',markers[i+3],'</div>')
-    }
-    $('#markers').html(html.join(''))
-}
-
 function start_marker(e)
 {
     if (e.which != 1) return
@@ -500,7 +484,6 @@ function drag_marker(e)
             cls:    marker.attr('class')
         })
         $(window).off('mousemove').off('mouseup')
-        save_markers()
         return false
     })
     return false
@@ -605,17 +588,3 @@ function hide_zoom()
         socket.emit('zoom', { page: currentpageid, x: 0, y: 0, w: 0, h: 0 })
     }
 }
-
-/*
-function setData(key, value) {
-    sessionStorage.setItem(key, JSON.stringify(value))
-}
-
-function getData(key) {
-    return JSON.parse(sessionStorage.getItem(key))
-}
-
-function eraseData(key) {
-    sessionStorage.removeItem(key)
-}
-*/

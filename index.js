@@ -3,6 +3,7 @@ var app = express()
 var http = require('http').createServer(app)
 var io = require('socket.io')(http)
 var path = require('path')
+var fs = require('fs')
 app.use('/', express.static(path.join(__dirname, 'public')))
 http.listen(8080, function() {
     console.log('Starting server on port 8080')
@@ -69,6 +70,32 @@ io.on('connection', function(socket) {
                 for (const i in pages[zoom.page].areas) {
                     io.emit('area', pages[zoom.page].areas[i])
                 }
+            })
+            socket.on('mapupload', (map) => {
+                if (!pages[map.page]) { return }
+                if (map.data.length > 10000000) {
+                    console.log('mapupload', 'file too large', map.data.length)
+                    return
+                }
+                if (map.name.length > 50 || map.name.match(/[^A-Za-z0-9._-]/)) {
+                    console.log('mapupload', 'illegal filename', map.name)
+                    return
+                }
+                const mappath = './public/maps/'+map.page+'/'+map.name
+                console.log('mapupload', map.name, map.data.length)
+                fs.writeFile(mappath, map.data, 'Binary', function(err) {
+                    if (err) {
+                        console.log('mapupload error', err)
+                        return
+                    }
+                    if (map.active) {
+                        io.emit('map', map.page+'/'+map.name)
+                    }
+                    console.log('mapupload written', mappath)
+                })
+            })
+            socket.on('map', (map) => {
+                io.emit('map', map.page+'/'+map.name)
             })
             socket.emit('pages', pages)
             socket.emit('page', pages[currentplayerpage])
