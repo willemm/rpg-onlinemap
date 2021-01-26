@@ -25,7 +25,11 @@ function setup_socket(socket)
     socket.on('pages', function(pages) {
         console.log('pages', pages)
     })
-    socket.on('movemarker', movemarker)
+    socket.on('marker', set_marker)
+    socket.on('area', set_area)
+    socket.on('effect', set_effect)
+    socket.on('removearea', remove_area)
+    socket.on('removeeffect', remove_effect)
     socket.on('zoom', function(zoom) {
         if (zoom.page == currentpageid) {
             set_zoom(zoom)
@@ -33,16 +37,61 @@ function setup_socket(socket)
     })
 }
 
-function movemarker(marker)
+var lastuid = 0
+
+function get_uid()
+{
+    newid = new Date().getTime()
+    if (newid < lastuid) { newid = lastuid+1 }
+    lastuid = newid
+    return newid.toString(36)
+}
+
+function set_effect(effect)
+{
+    console.log('effect', effect)
+    if (effect.page != currentpageid) { return }
+    if (!$('#zoompopup').is(':visible')) { return }
+    var effecttr = $('#area-effects .aoe[data-id="'+effect.id+'"]')
+    if (!effecttr.length) {
+        effecttr = $(
+            '<tr class="aoe" data-color="'+effect.color+'" data-page="'+effect.page+'" data-id="'+effect.id+'">'+
+            '<td class="aoe-text" style="background-color:'+effect.color+';">'+
+            '<input type="text" placeholder="Area of Effect"></td>'+
+            '<td class="aoe-close">X</td></tr>').prependTo('#area-effects')
+    }
+    if (!effecttr.is(':focus')) {
+        effecttr.find('input').val(effect.text)
+    }
+}
+
+function set_area(area)
+{
+    console.log('area', area)
+    if (area.page != currentpageid) { return }
+    if (!$('#zoompopup').is(':visible')) { return }
+    var areadiv = $('#zoomoverlay .aoe[data-id="'+area.id+'"]')
+    if (!areadiv.length) {
+        areadiv = $('<div class="'+area.cls+'" style="left:'+x+'px; top:'+y+'px; width:'+w+'px; height:'+h+'px; background-color:'+area.color+';" data-color="'+area.color+'" data-id="'+area.id+'" data-page="'+area.page+'"></div>').appendTo('#zoomoverlay')
+    }
+    var zof = $('#zoomoverlay').offset()
+    var x = area.imx * zoompos.w + zoompos.x - zof.left
+    var y = area.imy * zoompos.h + zoompos.y - zof.top
+    var w = area.imw * zoompos.w
+    var h = area.imh * zoompos.h
+    areadiv.css({left: x+'px', top: y+'px', width: w+'px', height: h+'px'})
+}
+
+function set_marker(marker)
 {
     if (marker.page != currentpageid) { return }
     if (!$('#zoompopup').is(':visible')) { return }
-    var markerdiv = $('#markers .marker[myid="'+marker.id+'"]')
+    var markerdiv = $('#markers .marker[data-id="'+marker.id+'"]')
     if (!markerdiv.length) {
-        markerdiv = $('<div mypage="'+marker.page+'" myid="'+marker.id+'" class="'+marker.cls+'">'+marker.text+'</div>').appendTo('#markers')
+        markerdiv = $('<div data-page="'+marker.page+'" data-id="'+marker.id+'" class="'+marker.cls+'">'+marker.text+'</div>').appendTo('#markers')
     }
-    var x = marker.imx * zoompos.w + zoompos.x
-    var y = marker.imy * zoompos.h + zoompos.y
+    var x = marker.imx * zoompos.w + zoompos.x - markerdiv.width()/2
+    var y = marker.imy * zoompos.h + zoompos.y - markerdiv.height()/2
     markerdiv.css({left:x+'px',top:y+'px'})
 }
 
@@ -53,7 +102,17 @@ function show_page(page)
     }
     if (page.markers) {
         for (mr in page.markers) {
-            movemarker(page.markers[mr])
+            set_marker(page.markers[mr])
+        }
+    }
+    if (page.areas) {
+        for (ar in page.areas) {
+            set_area(page.areas[ar])
+        }
+    }
+    if (page.effects) {
+        for (ar in page.effects) {
+            set_effect(page.effects[ar])
         }
     }
 }
@@ -74,7 +133,8 @@ function load() {
     set_aoe_styles()
     $('td.area-effects').on('click','div', add_aoe)
     $('#area-effects').on('click','tr.aoe td.aoe-close', close_aoe)
-    $('#area-effects').on('change','input', save_effects)
+    $('#area-effects').on('input','input', oninput_effect)
+    $('#area-effects').on('change','input', emit_effect)
 }
 
 function set_aoe_styles()
@@ -99,25 +159,89 @@ function add_aoe()
     var color = $(this).attr('data-color')
     var aoe = $('#area-effects tr[data-color="'+color+'"]')
     if (aoe.length == 0) {
-        aoe = $('<tr class="aoe" data-color="'+color+'"><td class="aoe-text" style="background-color: '+color+';"><input type="text" placeholder="Area of Effect"></td><td class="aoe-close">X</td></tr>').prependTo('#area-effects')
+        aoe = $('<tr class="aoe" data-color="'+color+'" data-page="'+currentpageid+'" data-id="'+get_uid()+'"><td class="aoe-text" style="background-color: '+color+';"><input type="text" placeholder="Area of Effect"></td><td class="aoe-close">X</td></tr>').prependTo('#area-effects')
     }
     aoe.find('input').focus()
     $('#area-effects td.area-effects div.selected').removeClass('selected')
     $(this).addClass('selected')
     $('#zoomoverlay').addClass('draw-aoe')
-    save_effects()
+    socket.emit('effect', {
+        id:     aoe.attr('data-id'),
+        page:   aoe.attr('data-page'),
+        color:  aoe.attr('data-color'),
+        text:   aoe.find('input').val(),
+        player: true
+    })
     return false
+}
+
+var nexteffectsend = 0
+
+function oninput_effect()
+{
+    var now = new Date().getTime()
+    var inp = $(this)
+    if (nexteffectsend < now) {
+        var to = inp.attr('data-timeout')
+        if (to) {
+            inp.attr('data-timeout', null)
+            clearTimeout(to)
+        }
+        emit_effect.apply(this)
+        nexteffectsend = now + 200
+    } else {
+        var to = inp.attr('data-timeout')
+        if (to) {
+            clearTimeout(to)
+        }
+        to = setTimeout(function() {
+            oninput_effect.apply(inp)
+        }, 200)
+        inp.attr('data-timeout', to)
+    }
+}
+
+function emit_effect()
+{
+    var inp = $(this)
+    var aoe = inp.closest('tr.aoe')
+    socket.emit('effect', {
+        id:    aoe.attr('data-id'),
+        page:  aoe.attr('data-page'),
+        color: aoe.attr('data-color'),
+        text:  inp.val(),
+        player: true
+    })
 }
 
 function close_aoe()
 {
     var tr = $(this).parent('tr')
+    socket.emit('removeeffect', {
+        page:   tr.attr('data-page'),
+        id:     tr.attr('data-id')
+    })
+}
+
+function remove_area(area)
+{
+    console.log('remove_area', area)
+    if (area.page != currentpageid) { return }
+    $('#zoomoverlay .aoe[data-id="'+area.id+'"]').remove()
+}
+
+function remove_effect(effect)
+{
+    console.log('remove_effect', effect)
+    var effecttr = $('#area-effects .aoe[data-id="'+effect.id+'"]')
+    effecttr.remove()
+    $('#area-effects div.selected').removeClass('selected')
+
+    /*
     var color = tr.attr('data-color')
     $('#zoomoverlay div.aoe[data-color="'+color+'"]').remove()
-    tr.remove()
-    save_effects()
-    save_areas()
     $('#area-effects div.selected').removeClass('selected')
+    */
 }
 
 function select_aoe(e)
@@ -131,10 +255,10 @@ function select_aoe(e)
     dragging = { x: e.pageX + zoom.scrollLeft(), y: e.pageY + zoom.scrollTop() }
     var par = sel.parent('td.area-effects')
     if (par.hasClass('area-square')) {
-        zoom.append('<div class="aoe dragging area-square" data-color="'+color+'" style="background-color: '+color+';"/>')
+        zoom.append('<div class="aoe dragging area-square" data-id="'+get_uid()+'" data-page="'+currentpageid+'" data-color="'+color+'" style="background-color: '+color+';"/>')
         zoom.on('mousemove', size_aoe_square).on('mouseup', show_aoe_square)
     } else if (par.hasClass('area-circle')) {
-        zoom.append('<div class="aoe dragging area-circle" data-color="'+color+'" style="background-color: '+color+';"/>')
+        zoom.append('<div class="aoe dragging area-circle" data-id="'+get_uid()+'" data-page="'+currentpageid+'" data-color="'+color+'" style="background-color: '+color+';"/>')
         zoom.on('mousemove', size_aoe_circle).on('mouseup', show_aoe_circle)
     }
     return false
@@ -166,8 +290,10 @@ function show_aoe_square(e)
     $(this).off('mousemove').off('mouseup')
     $('#zoomoverlay').removeClass('draw-aoe')
     $('#area-effects td.area-effects div.selected').removeClass('selected')
-    $('#zoomoverlay div.aoe.dragging').removeClass('dragging')
-    save_areas()
+    var aoe = $('#zoomoverlay div.aoe.dragging')
+    aoe.removeClass('dragging')
+
+    emit_area(aoe)
     return false
 }
 
@@ -194,12 +320,35 @@ function size_aoe_circle(e)
 function show_aoe_circle(e)
 {
     size_aoe_circle(e)
+    var aoe = $(this)
     $(this).off('mousemove').off('mouseup')
     $('#zoomoverlay').removeClass('draw-aoe')
     $('#area-effects td.area-effects div.selected').removeClass('selected')
-    $('#zoomoverlay div.aoe.dragging').removeClass('dragging')
-    save_areas()
+    var aoe = $('#zoomoverlay div.aoe.dragging')
+    aoe.removeClass('dragging')
+
+    emit_area(aoe)
     return false
+}
+
+function emit_area(aoe)
+{
+    var of = aoe.offset()
+    var imx = (of.left - zoompos.x) / zoompos.w
+    var imy = (of.top  - zoompos.y) / zoompos.h
+    var imw = aoe.width() / zoompos.w
+    var imh = aoe.height() / zoompos.h
+    socket.emit('area', {
+        id:    aoe.attr('data-id'),
+        page:  aoe.attr('data-page'),
+        cls:   aoe.attr('class'),
+        imx:   imx,
+        imy:   imy,
+        imw:   imw,
+        imh:   imh,
+        color: aoe.attr('data-color'),
+        player: true
+    })
 }
 
 function save_areas()
@@ -213,6 +362,7 @@ function save_areas()
     */
 }
 
+/*
 function set_areas(areas)
 {
     if (!areas) return
@@ -222,6 +372,7 @@ function set_areas(areas)
     }
     $('#zoomoverlay').append(html.join(''))
 }
+*/
 
 function save_effects()
 {
@@ -268,8 +419,6 @@ function set_markers(markers)
     $('#markers').html(html.join(''))
 }
 
-var lastmarker = 0
-
 function start_marker(e)
 {
     if (e.which != 1) return
@@ -301,11 +450,7 @@ function start_marker(e)
             }
         }
         cls.push(ch.attr('class'))
-        markerid = new Date().getTime()
-        if (markerid < lastmarker) { markerid = lastmarker+1 }
-        lastmarker = markerid
-        markerid = markerid.toString(36)
-        marker = $('<div mypage="'+currentpageid+'" myid="'+markerid+'" class="'+cls.join(' ')+'">'+mid+'</div>').appendTo('#markers')
+        marker = $('<div data-page="'+currentpageid+'" data-id="'+get_uid()+'" class="'+cls.join(' ')+'">'+mid+'</div>').appendTo('#markers')
         drag_marker.apply(marker, [e])
     }
     return false
@@ -323,13 +468,13 @@ function drag_marker(e)
         var y = (e.pageY-marker.height()/2)
         marker.css({left:x+'px',top:y+'px'})
 
-        var imx = (x - zoompos.x)/zoompos.w
-        var imy = (y - zoompos.y)/zoompos.h
+        var imx = (e.pageX - zoompos.x)/zoompos.w
+        var imy = (e.pageY - zoompos.y)/zoompos.h
         var now = new Date().getTime()
         if (nextmovesend < now) {
-            socket.emit('movemarker', {
-                id:     marker.attr('myid'),
-                page:   marker.attr('mypage'),
+            socket.emit('marker', {
+                id:     marker.attr('data-id'),
+                page:   marker.attr('data-page'),
                 imx:    imx,
                 imy:    imy,
                 text:   marker.text(),
@@ -343,11 +488,11 @@ function drag_marker(e)
         var x = (e.pageX-marker.width()/2)
         var y = (e.pageY-marker.height()/2)
         marker.css({left:x+'px',top:y+'px'})
-        var imx = (x - zoompos.x)/zoompos.w
-        var imy = (y - zoompos.y)/zoompos.h
-        socket.emit('movemarker', {
-            id:     marker.attr('myid'),
-            page:   marker.attr('mypage'),
+        var imx = (e.pageX - zoompos.x)/zoompos.w
+        var imy = (e.pageY - zoompos.y)/zoompos.h
+        socket.emit('marker', {
+            id:     marker.attr('data-id'),
+            page:   marker.attr('data-page'),
             imx:    imx,
             imy:    imy,
             text:   marker.text(),

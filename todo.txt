@@ -1,0 +1,1 @@
+- Area effect over sluitknop zorgt dat ie niet meer klikbaar is
