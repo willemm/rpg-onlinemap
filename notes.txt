@@ -1,0 +1,28 @@
+
+Websocket interface:
+
+- join: Join the server.  Requires a token to keep out strangers
+  Admin token enables admin mode, where you can create and edit pages
+  The admin interface will create tokens for players
+
+Admin:
+- createpage: Create a new page
+- editpage: Set stuff like title, etc
+- uploadimage: For uploading the map on a page
+- initiative: For setting the initiative list
+
+Player:
+- movepawn: Move pawns around the page (some can only be moved by admins)
+- movearea: Create or move an area-of-effect marker
+
+
+Flow:
+
+DM goes to webpage and logs in with admin-token
+DM creates (one or more) pages with a map and a number of players (todo: backend storage for different campaigns?)
+Page creation also shows a player-token.  DM sends this token to the players
+Players go to webpage and fill in token to log in (token in URL? Maybe security issue.  Do hash-tokens get sent to the server?)
+Webpage shows one of the map pages to logged in players
+Players can move player pawns and AOEs
+DM can make different pages and push 'take players to this page' button
+

@@ -1,0 +1,16 @@
+{
+  "name": "missile",
+  "version": "1.0.0",
+  "description": "Multiplayer Missile Command",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Willem Monsuwe",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "md5": "^2.2.1",
+    "socket.io": "^2.3.0"
+  }
+}
