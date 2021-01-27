@@ -5,8 +5,8 @@ var io = require('socket.io')(http)
 var path = require('path')
 var fs = require('fs')
 app.use('/', express.static(path.join(__dirname, 'public')))
-http.listen(8080, function() {
-    console.log('Starting server on port 8080')
+http.listen(80, function() {
+    console.log('Starting server on port 80')
 })
 
 const maxpages = 5
@@ -79,6 +79,10 @@ io.on('connection', function(socket) {
                 }
                 if (map.name.length > 50 || map.name.match(/[^A-Za-z0-9._-]/)) {
                     console.log('mapupload', 'illegal filename', map.name)
+                    return
+                }
+                if (!map.name.match(/\.(gif|jpg|jpeg|png)$/i)) {
+                    console.log('mapupload', 'illegal file extension', map.name)
                     return
                 }
                 const mappath = './public/maps/'+map.page+'/'+map.name
