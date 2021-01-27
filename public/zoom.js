@@ -36,6 +36,7 @@ function setup_socket(socket)
         }
     })
     socket.on('mapfile', add_mapfile)
+    socket.on('mapremove', remove_mapfile)
     socket.on('map', function(mapname) {
         console.log('map', mapname)
         $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
@@ -144,6 +145,13 @@ function load() {
 
     $('#fileupload').on('input','input.mapnamenew', new_maprow)
     $('#fileupload').on('change', 'input.active', select_mapfile)
+    $('#fileupload').on('click', '.remove.button', remove_map)
+}
+
+function remove_map(e)
+{
+    var tr = $(this).closest('tr')
+    socket.emit('mapremove', { page: tr.attr('data-page'), name: tr.attr('data-name')})
 }
 
 function select_mapfile(e)
@@ -156,7 +164,7 @@ function new_maprow(e)
 {
     if ($(this).val()) {
         var tr = $(this).closest('tr')
-        tr.append('<td><label><div class="uploadbtn">browse</div>'+
+        tr.append('<td><label><div class="upload button">browse</div>'+
             '<input name="mapimage" type="file" class="mapimage" value="Map" '+
             'accept=".jpg,.png,.gif,image/*"></label></td>')
         $(this).removeClass('mapnamenew').addClass('mapname')
@@ -176,11 +184,18 @@ function add_mapfile(map)
         mapfileent = $('<tr class="mapupload" data-name="'+map.name+'" data-page="'+map.page+'">'+
                           '<td><input class="active" type="radio" name="mapactive" '+(map.active?'checked':'')+'></td>'+
                           '<td class="mapname">'+map.name+'</td>'+
-                          '<td><label><div class="uploadbtn">browse</div>'+
+                          '<td><label><div class="upload button">browse</div>'+
                           '<input name="mapimage" type="file" class="mapimage" value="Map" '+
                           'accept=".jpg,.png,.gif,image/*"></label></td>'+
-                      '</tr>').insertBefore('#fileupload tr.mapuploadnew')
+                          '<td class="removemap"><div class="remove button">X</div></td>'+
+                       '</tr>').insertBefore('#fileupload tr.mapuploadnew')
     }
+}
+
+function remove_mapfile(map)
+{
+    console.log('remove_mapfile', map)
+    $('#fileupload tr.mapupload[data-page="'+map.page+'"][data-name="'+map.name+'"]').remove()
 }
 
 function upload_map(e)
@@ -199,6 +214,7 @@ function upload_map(e)
         filetr.attr('data-name', inputval)
         filetr.attr('data-page', currentpageid)
         nameinput.closest('td').text(inputval)
+        filetr.append('<td class="removemap"><div class="remove button">X</div></td>')
     }
     var filename = filetr.attr('data-name')
     var filepage = filetr.attr('data-page')

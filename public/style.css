@@ -250,7 +250,7 @@ td.aoe-close {
     z-index: 60;
 }
 
-#fileupload div.uploadbtn {
+#fileupload div.button {
     border: 1px solid black;
     cursor: pointer;
     font-size: 12px;

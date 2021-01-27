@@ -129,6 +129,29 @@ io.on('connection', function(socket) {
                     save_pages()
                 })
             })
+            socket.on('mapremove', (map) => {
+                if (!pages[map.page] || !pages[map.page].maps[map.name]) {
+                    socket.emit('mapremove', {
+                        page: map.page,
+                        name: map.name,
+                        error: 'Not found'
+                    })
+                    return
+                }
+                const mappath = './public/maps/'+pages[map.page].maps[map.name].path
+                console.log('Removing mapfile '+mappath)
+                fs.unlink(mappath, function(err) {
+                    if (err) {
+                        console.log('mapremove error', err)
+                        return
+                    }
+                    console.log('File removed: '+mappath)
+                    let deletedmap = pages[map.page].maps[map.name]
+                    delete pages[map.page].maps[map.name]
+                    io.emit('mapremove', deletedmap)
+                    save_pages()
+                })
+            })
             socket.on('map', (map) => {
                 if (!pages[map.page] || !pages[map.page].maps[map.name]) {
                     return
