@@ -23,6 +23,7 @@ function setup_socket(socket)
         currentpageid = page.id
         show_page(page)
     })
+    socket.on('initiative', set_initiative)
     socket.on('marker', set_marker)
     socket.on('area', set_area)
     socket.on('effect', set_effect)
@@ -34,7 +35,6 @@ function setup_socket(socket)
         }
     })
     socket.on('map', function(mapname) {
-        console.log('map', mapname)
         $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
     })
     socket.on('pages', function(pages) {
@@ -61,6 +61,24 @@ function get_uid()
     if (newid < lastuid) { newid = lastuid+1 }
     lastuid = newid
     return newid.toString(36)
+}
+
+function set_initiative(initiative)
+{
+    if (initiative.page == currentpageid) {
+        if (initiative.order) {
+            var html = ['<tbody>']
+            for (var i = 0; i < initiative.order.length; i++) {
+                var item = initiative.order[i]
+                html.push('<tr class="',item.type,'"><td class="initiative">',
+                    (item.initiative || '&nbsp;'),
+                    '</td><td class="name">',item.text,'</td></tr>')
+            }
+            html.push('<tr><td width= 50px;>&nbsp;</td><td width= 250px;>&nbsp;</td></tr>')
+            html.push('</tbody>')
+            $('#characters').html(html.join(''))
+        }
+    }
 }
 
 function set_effect(effect)
@@ -136,6 +154,9 @@ function show_page(page)
             add_mapfile(page.maps[mf])
         }
     }
+    if (page.initiative) {
+        set_initiative({page: currentpageid, order: page.initiative})
+    }
 }
 
 function load() {
@@ -182,7 +203,6 @@ function new_maprow(e)
 
 function add_mapfile(map)
 {
-    console.log('add_mapfile', map)
     var mapfileent = $('#fileupload tr.mapupload[data-page="'+map.page+'"][data-name="'+map.name+'"]')
     if (!mapfileent.length) {
         mapfileent = $('<tr class="mapupload" data-name="'+map.name+'" data-page="'+map.page+'">'+
@@ -198,7 +218,6 @@ function add_mapfile(map)
 
 function remove_mapfile(map)
 {
-    console.log('remove_mapfile', map)
     $('#fileupload tr.mapupload[data-page="'+map.page+'"][data-name="'+map.name+'"]').remove()
 }
 

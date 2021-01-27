@@ -62,13 +62,14 @@ io.on('connection', function(socket) {
                 let token = Math.round(Math.pow(36,10)*Math.random()).toString(36)
                 token = token.toString(36)
                 pages[pageid] = {
-                    id:      pageid,
-                    token:   token,
-                    title:   '',
-                    active:  false,
-                    markers: {},
-                    areas:   {},
-                    effects: {}
+                    id:         pageid,
+                    token:      token,
+                    title:      '',
+                    active:     false,
+                    markers:    {},
+                    areas:      {},
+                    effects:    {},
+                    initiative: []
                 }
                 socket.emit('pages', pages)
                 socket.emit('page', pages[pageid])
@@ -163,8 +164,31 @@ io.on('connection', function(socket) {
                 io.emit('map', pages[map.page].maps[map.name].path)
                 save_pages()
             })
+            socket.on('initiative', (initiative) => {
+                if (!pages[initiative.page]) {
+                    return
+                }
+
+                if (initiative.order) {
+                    let order = []
+                    for (o of initiative.order) {
+                        order.push({
+                            type:       o.type,
+                            text:       o.text,
+                            initiative: o.initiative
+                        })
+                    }
+                    pages[initiative.page].initiative = order
+                    io.emit('initiative', { page: initiative.page, order: order})
+                }
+            })
             socket.emit('pages', pages)
             socket.emit('page', pages[currentplayerpage])
+            for (const key in pages[currentplayerpage].maps) {
+                const map = pages[currentplayerpage].maps[key]
+                if (map.active)
+                socket.emit('map', map.path)
+            }
         } else {
             let found = null
             for (const p in pages) {
@@ -181,6 +205,11 @@ io.on('connection', function(socket) {
                 return
             }
             socket.emit('page', pages[found])
+            for (const key in pages[found].maps) {
+                const map = pages[found].maps[key]
+                if (map.active)
+                socket.emit('map', map.path)
+            }
         }
         socket.on('marker', (marker) => {
             if (!pages[marker.page]) { return }

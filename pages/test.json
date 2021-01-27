@@ -26,5 +26,32 @@
     "y": 0,
     "w": 0,
     "h": 0
-  }
+  },
+  "initiative": [
+    {
+      "type": "pc",
+      "text": "Dadmic (Rudi)",
+      "initiative": null
+    },
+    {
+      "type": "pc",
+      "text": "Jan (Frances)",
+      "initiative": null
+    },
+    {
+      "type": "pc",
+      "text": "Moth (Willem)",
+      "initiative": null
+    },
+    {
+      "type": "pc",
+      "text": "Roos (Emma)",
+      "initiative": null
+    },
+    {
+      "type": "pc",
+      "text": "Boph (Jasper)",
+      "initiative": null
+    }
+  ]
 }
