@@ -23,9 +23,6 @@ function setup_socket(socket)
         currentpageid = page.id
         show_page(page)
     })
-    socket.on('pages', function(pages) {
-        // console.log('pages', pages)
-    })
     socket.on('marker', set_marker)
     socket.on('area', set_area)
     socket.on('effect', set_effect)
@@ -40,8 +37,8 @@ function setup_socket(socket)
         console.log('map', mapname)
         $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
     })
-    socket.on('admin', function(isadmin) {
-        if (!admin && isadmin) {
+    socket.on('pages', function(pages) {
+        if (!admin) {
             admin = true
             $('.adminonly').show()
             socket.on('mapfile', add_mapfile)

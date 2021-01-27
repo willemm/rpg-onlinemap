@@ -165,7 +165,6 @@ io.on('connection', function(socket) {
             })
             socket.emit('pages', pages)
             socket.emit('page', pages[currentplayerpage])
-            socket.emit('admin', true)
         } else {
             let found = null
             for (const p in pages) {
