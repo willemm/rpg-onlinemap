@@ -3,6 +3,7 @@ $(load)
 var dragging
 var currentpageid = 'test'
 var zoompos = {}
+var admin = false
 
 const socket = io()
 setup_socket(socket)
@@ -35,11 +36,23 @@ function setup_socket(socket)
             set_zoom(zoom)
         }
     })
-    socket.on('mapfile', add_mapfile)
-    socket.on('mapremove', remove_mapfile)
     socket.on('map', function(mapname) {
         console.log('map', mapname)
         $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
+    })
+    socket.on('admin', function(isadmin) {
+        if (!admin && isadmin) {
+            admin = true
+            $('.adminonly').show()
+            socket.on('mapfile', add_mapfile)
+            socket.on('mapremove', remove_mapfile)
+
+            $('#fileupload').on('change','input[type="file"].mapimage', upload_map)
+
+            $('#fileupload').on('input','input.mapnamenew', new_maprow)
+            $('#fileupload').on('change', 'input.active', select_mapfile)
+            $('#fileupload').on('click', '.remove.button', remove_map)
+        }
     })
 }
 
@@ -140,12 +153,6 @@ function load() {
     $('#area-effects').on('click','tr.aoe td.aoe-close', close_aoe)
     $('#area-effects').on('input','input', oninput_effect)
     $('#area-effects').on('change','input', emit_effect)
-
-    $('#fileupload').on('change','input[type="file"].mapimage', upload_map)
-
-    $('#fileupload').on('input','input.mapnamenew', new_maprow)
-    $('#fileupload').on('change', 'input.active', select_mapfile)
-    $('#fileupload').on('click', '.remove.button', remove_map)
 }
 
 function remove_map(e)

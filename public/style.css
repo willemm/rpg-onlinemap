@@ -250,6 +250,10 @@ td.aoe-close {
     z-index: 60;
 }
 
+.adminonly {
+    display: none;
+}
+
 #fileupload div.button {
     border: 1px solid black;
     cursor: pointer;
