@@ -11,19 +11,37 @@ http.listen(80, function() {
 
 const maxpages = 5
 let pages = {}
-// Temporary hardcoded page (TODO)
-pages['test'] = {
-    id:      'test',
-    token:   'test',
-    title:   'test',
-    active:  true,
-    markers: {},
-    areas:   {},
-    effects: {}
-}
-let currentplayerpage = 'test'
+let currentplayerpage = ''
 let adminsecret = 'testadmin'
 let pageid = 0
+
+for (const dir of fs.readdirSync('./public/maps/', { withFileTypes: true })) {
+    if (dir.isDirectory()) {
+        try {
+            let newpage = require('./pages/'+dir.name+'.json')
+            newpage.id = dir.name
+            newpage.maps = {}
+            for (const file of fs.readdirSync('./public/maps/'+dir.name)) {
+                const m = file.match(/^(.*)\.(gif|jpg|jpeg|png)/i)
+                if (m) {
+                    const mapname = m[1]
+                    newpage.maps[mapname] = {
+                        page: dir.name,
+                        name: mapname,
+                        path: dir.name+'/'+file,
+                        active: false
+                    }
+                }
+            }
+            pages[dir.name] = newpage
+            if (newpage.active) {
+                currentplayerpage = dir.name
+            }
+        } catch (e) {
+            console.log('Error reading pagefile from '+dir.name)
+        }
+    }
+}
 
 io.on('connection', function(socket) {
     console.log('Connection from '+socket.conn.remoteAddress+' id='+socket.id)
@@ -35,16 +53,14 @@ io.on('connection', function(socket) {
         if (secret == adminsecret) {
             admin = true
             console.log(socket.id+'  Admin connection')
-            socket.on('createpage', (token) => {
+            socket.on('createpage', (pageid) => {
                 if (Object.keys(pages).length >= maxpages) {
                     console.log('Create page error: we already have '+maxpages+' pages')
                     socket.emit('error', 'Can\'t create page: Too many pages')
                     return
                 }
-                let pageid = new Date().getTime()
-                if (pageid <= lastpageid) { pageid = lastpageid+1 }
-                lastpageid = pageid
-                pageid = pageid.toString(36)
+                let token = Math.round(Math.pow(36,10)*Math.random()).toString(36)
+                token = token.toString(36)
                 pages[pageid] = {
                     id:      pageid,
                     token:   token,
@@ -56,6 +72,7 @@ io.on('connection', function(socket) {
                 }
                 socket.emit('pages', pages)
                 socket.emit('page', pages[pageid])
+                save_pages()
             })
             socket.on('zoom', (zoom) => {
                 if (!pages[zoom.page]) { return }
@@ -70,6 +87,7 @@ io.on('connection', function(socket) {
                 for (const i in pages[zoom.page].areas) {
                     io.emit('area', pages[zoom.page].areas[i])
                 }
+                save_pages()
             })
             socket.on('mapupload', (map) => {
                 if (!pages[map.page]) { return }
@@ -81,25 +99,46 @@ io.on('connection', function(socket) {
                     console.log('mapupload', 'illegal filename', map.name)
                     return
                 }
-                if (!map.name.match(/\.(gif|jpg|jpeg|png)$/i)) {
+                if (!map.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
                     console.log('mapupload', 'illegal file extension', map.name)
                     return
                 }
-                const mappath = './public/maps/'+map.page+'/'+map.name
+                map.path = map.page+'/'+map.name+'.'+map.fileext
+                const mappath = './public/maps/'+map.path
                 console.log('mapupload', map.name, map.data.length)
                 fs.writeFile(mappath, map.data, 'Binary', function(err) {
                     if (err) {
                         console.log('mapupload error', err)
                         return
                     }
-                    if (map.active) {
-                        io.emit('map', map.page+'/'+map.name)
+                    pages[map.page].maps[map.name] = {
+                        page: map.page,
+                        name: map.name,
+                        path: map.path,
+                        active: map.active
                     }
+                    if (map.active) {
+                        for (pagemap in pages[map.page].maps) {
+                            pages[map.page].maps[pagemap].active = false
+                        }
+                        pages[map.page].maps[map.name].active = true
+                        io.emit('map', pages[map.page].maps[map.name].path)
+                    }
+                    io.emit('mapfile', pages[map.page].maps[map.name])
                     console.log('mapupload written', mappath)
+                    save_pages()
                 })
             })
             socket.on('map', (map) => {
-                io.emit('map', map.page+'/'+map.name)
+                if (!pages[map.page] || !pages[map.page].maps[map.name]) {
+                    return
+                }
+                for (pagemap in pages[map.page].maps) {
+                    pages[map.page].maps[pagemap].active = false
+                }
+                pages[map.page].maps[map.name].active = true
+                io.emit('map', pages[map.page].maps[map.name].path)
+                save_pages()
             })
             socket.emit('pages', pages)
             socket.emit('page', pages[currentplayerpage])
@@ -136,6 +175,7 @@ io.on('connection', function(socket) {
             pages[marker.page].markers[marker.id].imx = marker.imx
             pages[marker.page].markers[marker.id].imy = marker.imy
             io.emit('marker', pages[marker.page].markers[marker.id])
+            save_pages()
         })
         socket.on('area', (area) => {
             if (!pages[area.page]) { return }
@@ -154,6 +194,7 @@ io.on('connection', function(socket) {
             pages[area.page].areas[area.id].imw = area.imw
             pages[area.page].areas[area.id].imh = area.imh
             io.emit('area', pages[area.page].areas[area.id])
+            save_pages()
         })
         socket.on('effect', (effect) => {
             if (!pages[effect.page]) { return }
@@ -167,6 +208,7 @@ io.on('connection', function(socket) {
             }
             pages[effect.page].effects[effect.id].text = effect.text
             io.emit('effect', pages[effect.page].effects[effect.id])
+            save_pages()
         })
         socket.on('removeeffect', (effect) => {
             if (!pages[effect.page]) { return }
@@ -182,6 +224,7 @@ io.on('connection', function(socket) {
                     }
                 }
             }
+            save_pages()
         })
     })
     socket.on('disconnect', () => {
@@ -190,5 +233,34 @@ io.on('connection', function(socket) {
         } else {
             console.log('Disconnect socket '+socket.id)
         }
+        save_pages()
     })
 })
+
+let savetimeout = 0
+let nextsave = 0
+
+function save_page_timeout()
+{
+    savetimeout = 0
+    save_pages()
+}
+
+function save_pages()
+{
+    const now = new Date().getTime()
+    if (now > nextsave) {
+        nextsave = now + 10000
+        for (const p in pages) {
+            fs.writeFile('./pages/'+pages[p].id+'.json', JSON.stringify(pages[p], null, 2), function(err) {
+                if (err) {
+                    console.log('save_pages error', err)
+                    save_pages()
+                }
+            })
+        }
+    } else {
+        if (savetimeout) { return }
+        savetimeout = setTimeout(save_page_timeout, 15000)
+    }
+}

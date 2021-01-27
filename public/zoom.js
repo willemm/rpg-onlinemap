@@ -35,6 +35,7 @@ function setup_socket(socket)
             set_zoom(zoom)
         }
     })
+    socket.on('mapfile', add_mapfile)
     socket.on('map', function(mapname) {
         console.log('map', mapname)
         $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
@@ -119,6 +120,11 @@ function show_page(page)
             set_effect(page.effects[ar])
         }
     }
+    if (page.maps) {
+        for (mf in page.maps) {
+            add_mapfile(page.maps[mf])
+        }
+    }
 }
 
 function load() {
@@ -154,11 +160,26 @@ function new_maprow(e)
             '<input name="mapimage" type="file" class="mapimage" value="Map" '+
             'accept=".jpg,.png,.gif,image/*"></label></td>')
         $(this).removeClass('mapnamenew').addClass('mapname')
-        $(this).closest('tbody').append('<tr class="mapupload" data-name="">'+
+        $(this).closest('tbody').append('<tr class="mapupload">'+
             '<td><input class="active" type="radio" name="mapactive"></td>'+
-            '<td><input class="mapnamenew" type="text" placeholder="New Map Name"></td>'+
+            '<td class="mapname"><input class="mapnamenew" type="text" placeholder="New Map Name"></td>'+
             '</tr>')
         tr.attr('data-name', $(this).val())
+    }
+}
+
+function add_mapfile(map)
+{
+    console.log('add_mapfile', map)
+    var mapfileent = $('#fileupload tr.mapupload[data-page="'+map.page+'"][data-name="'+map.name+'"]')
+    if (!mapfileent.length) {
+        mapfileent = $('<tr class="mapupload" data-name="'+map.name+'" data-page="'+map.page+'">'+
+                          '<td><input class="active" type="radio" name="mapactive" '+(map.active?'checked':'')+'></td>'+
+                          '<td class="mapname">'+map.name+'</td>'+
+                          '<td><label><div class="uploadbtn">browse</div>'+
+                          '<input name="mapimage" type="file" class="mapimage" value="Map" '+
+                          'accept=".jpg,.png,.gif,image/*"></label></td>'+
+                      '</tr>').insertBefore('#fileupload tr.mapuploadnew')
     }
 }
 
@@ -166,24 +187,28 @@ function upload_map(e)
 {
     var fileinp = $(this)
     var filetr = fileinp.closest('tr')
-    var mapname = filetr.attr('data-name')
-    if (!mapname) { return }
     var file = this.files[0]
-    var fileext = file.name.replace(/.*\./,'')
-    var filename = filetr.find('input.mapname').val()+'.'+fileext
-    filetr.attr('data-name', filename)
-    filetr.attr('data-page', currentpageid)
     if (file.size > 10000000) {
         // alert('File '+file.name+' too big: '+file.size)
         filetr.addClass('failed')
         return
     }
-    filetr.removeClass('failed').addClass('uploading')
+    var nameinput = filetr.find('input.mapname')
+    if (nameinput.length) {
+        var inputval = nameinput.val()
+        filetr.attr('data-name', inputval)
+        filetr.attr('data-page', currentpageid)
+        nameinput.closest('td').text(inputval)
+    }
+    var filename = filetr.attr('data-name')
+    var filepage = filetr.attr('data-page')
     var active = filetr.find('input.active').is(':checked')
+    var fileext = file.name.replace(/.*\./,'')
     var reader = new FileReader()
+    filetr.removeClass('failed').addClass('uploading')
     reader.onload = function(e) {
         var data = e.target.result
-        socket.emit('mapupload', {page: currentpageid, name: filename, data: data, active: active})
+        socket.emit('mapupload', {page: filepage, name: filename, fileext: fileext, data: data, active: active})
         filetr.removeClass('uploading')
     }
     reader.readAsBinaryString(file)

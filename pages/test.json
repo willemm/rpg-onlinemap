@@ -1,0 +1,102 @@
+{
+  "id": "test",
+  "token": "wzghdtgbej",
+  "title": "test",
+  "active": true,
+  "markers": {
+    "kkfv1x31": {
+      "id": "kkfv1x31",
+      "page": "test",
+      "text": "D",
+      "cls": "marker char_Dadmic__Rudi_ pc pc",
+      "player": true,
+      "imx": 0.41887632462363683,
+      "imy": 0.6480349250250157
+    },
+    "kkfv1yy3": {
+      "id": "kkfv1yy3",
+      "page": "test",
+      "text": "R",
+      "cls": "marker char_Roos__Emma_ pc pc",
+      "player": true,
+      "imx": 0.4930147441607741,
+      "imy": 0.5730919024851497
+    },
+    "kkfv20nz": {
+      "id": "kkfv20nz",
+      "page": "test",
+      "text": "M",
+      "cls": "marker char_Moth__Willem_ pc pc",
+      "player": true,
+      "imx": 0.5474978617741122,
+      "imy": 0.7082652069435582
+    }
+  },
+  "areas": {
+    "kkfv5e8r": {
+      "id": "kkfv5e8r",
+      "page": "test",
+      "cls": "aoe area-circle",
+      "color": "magenta",
+      "player": true,
+      "imx": 0.4112366334266647,
+      "imy": 0.6151223761852979,
+      "imw": 0.0757685653042453,
+      "imh": 0.10102475373899374
+    },
+    "kkfv5n9q": {
+      "id": "kkfv5n9q",
+      "page": "test",
+      "cls": "aoe area-square",
+      "color": "black",
+      "player": true,
+      "imx": 0.4496699636534558,
+      "imy": 0.49506397319113143,
+      "imw": 0.06039523321352886,
+      "imh": 0.06002920149708323
+    }
+  },
+  "effects": {
+    "kkfv5a7y": {
+      "id": "kkfv5a7y",
+      "page": "test",
+      "color": "magenta",
+      "player": true,
+      "text": "Weird"
+    },
+    "kkfv5j9r": {
+      "id": "kkfv5j9r",
+      "page": "test",
+      "color": "black",
+      "player": true,
+      "text": "Block"
+    }
+  },
+  "maps": {
+    "Lame": {
+      "page": "test",
+      "name": "Lame",
+      "path": "test/Lame.jpg",
+      "active": true
+    },
+    "Overworld": {
+      "page": "test",
+      "name": "Overworld",
+      "path": "test/Overworld.png",
+      "active": false
+    },
+    "Underworld": {
+      "page": "test",
+      "name": "Underworld",
+      "path": "test/Underworld.png",
+      "active": false
+    }
+  },
+  "zoom": {
+    "x": 401,
+    "y": 385,
+    "w": 317,
+    "h": 271,
+    "page": "test"
+  }
+}
