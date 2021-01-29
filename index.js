@@ -12,7 +12,7 @@ http.listen(80, function() {
 const maxpages = 5
 let pages = {}
 let currentplayerpage = ''
-let adminsecret = 'testadmin'
+let adminsecret = process.env.DUNGEONMASTER_TOKEN
 let pageid = 0
 
 for (const dir of fs.readdirSync('./public/maps/', { withFileTypes: true })) {
@@ -183,11 +183,13 @@ io.on('connection', function(socket) {
                 }
             })
             socket.emit('pages', pages)
-            socket.emit('page', pages[currentplayerpage])
-            for (const key in pages[currentplayerpage].maps) {
-                const map = pages[currentplayerpage].maps[key]
-                if (map.active)
-                socket.emit('map', map.path)
+            if (currentplayerpage) {
+                socket.emit('page', pages[currentplayerpage])
+                for (const key in pages[currentplayerpage].maps) {
+                    const map = pages[currentplayerpage].maps[key]
+                    if (map.active)
+                    socket.emit('map', map.path)
+                }
             }
         } else {
             let found = null

@@ -57,7 +57,7 @@
       "page": "test",
       "name": "Lame",
       "path": "test/Lame.jpg",
-      "active": true
+      "active": false
     },
     "Overworld": {
       "page": "test",
