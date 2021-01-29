@@ -21,6 +21,33 @@
       "player": true,
       "imx": 0.132726680286879,
       "imy": 0.38951623181345413
+    },
+    "kkim7sg0": {
+      "id": "kkim7sg0",
+      "page": "test",
+      "text": "R",
+      "cls": "marker char_Roos__Emma_ pc pc",
+      "player": true,
+      "imx": 0.4635675991941437,
+      "imy": 0.6039683466617455
+    },
+    "kkim7vwz": {
+      "id": "kkim7vwz",
+      "page": "test",
+      "text": "M",
+      "cls": "marker char_Moth__Willem_ pc pc",
+      "player": true,
+      "imx": 0.5671027173043799,
+      "imy": 0.7061877692339239
+    },
+    "kkimepe2": {
+      "id": "kkimepe2",
+      "page": "test",
+      "text": "S",
+      "cls": "marker char_Spiritual_Weapon pc pc",
+      "player": true,
+      "imx": 0.28852031394177535,
+      "imy": 0.367963745437582
     }
   },
   "areas": {},
@@ -49,22 +76,22 @@
   "initiative": [
     {
       "type": "pc",
-      "text": "Dadmic (Rudi)",
-      "initiative": null
+      "text": "Jan (Frances)",
+      "initiative": 17
     },
     {
       "type": "pc",
-      "text": "Jan (Frances)",
-      "initiative": null
+      "text": "Dadmic (Rudi)",
+      "initiative": 12
     },
     {
       "type": "pc",
       "text": "Moth (Willem)",
-      "initiative": null
+      "initiative": 10
     },
     {
-      "type": "empty",
-      "text": " ",
+      "type": "xx",
+      "text": "",
       "initiative": null
     },
     {
