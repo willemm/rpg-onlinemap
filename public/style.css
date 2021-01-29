@@ -50,6 +50,14 @@ tr.pc {
 	padding: 2px;
 }
 
+#characters tr.empty {
+        height: 20px;
+}
+
+#characters tr.deleteme input {
+  text-decoration: line-through;
+  color: rgba(0,0,0,0.3);
+}
 
 tr.npc1 {
 	background: #FFC469;
@@ -252,18 +260,61 @@ td.aoe-close {
     z-index: 60;
 }
 
-.adminonly {
+.dmonly {
     display: none;
+}
+
+#ini-title .editbutton{
+  float: right;
+}
+
+#characters {
+  margin-bottom: 30px;
+}
+
+#characters td.initiative {
+  width: 50px;
+}
+#characters td.name {
+  width: 250px;
+}
+
+#characters input {
+  border: 1px solid #000;
+  background-color: rgba(0,0,0,0.2);
+  margin: 0 2px;
+  padding: 0 2px;
+  height: 20px;
+  font: inherit;
+  font-size: 90%;
+}
+
+
+#characters input.initiative {
+  text-align: right;
+  width: 40px;
+}
+
+#characters input.name {
+  width: 180px;
+}
+
+#characters input.chartype {
+  width: 40px;
+  font-size: 80%;
 }
 
 #fileupload div.button {
     border: 1px solid black;
     cursor: pointer;
     font-size: 12px;
-    padding: 1px 3px;
+    padding: 1px 5px;
     background-color: #ccc;
     border-radius: 4px;
     box-shadow: 1px 1px #888;
+}
+#fileupload div.button.confirm {
+    background-color: #f85;
 }
 
 #fileupload label input {

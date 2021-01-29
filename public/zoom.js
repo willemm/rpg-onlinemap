@@ -3,7 +3,7 @@ $(load)
 var dragging
 var currentpageid = 'test'
 var zoompos = {}
-var admin = false
+var adminonly = false
 
 const socket = io()
 setup_socket(socket)
@@ -38,9 +38,9 @@ function setup_socket(socket)
         $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
     })
     socket.on('pages', function(pages) {
-        if (!admin) {
-            admin = true
-            $('.adminonly').show()
+        if (!adminonly) {
+            adminonly = true
+            $('.dmonly').show()
             socket.on('mapfile', add_mapfile)
             socket.on('mapremove', remove_mapfile)
 
@@ -48,9 +48,69 @@ function setup_socket(socket)
 
             $('#fileupload').on('input','input.mapnamenew', new_maprow)
             $('#fileupload').on('change', 'input.active', select_mapfile)
-            $('#fileupload').on('click', '.remove.button', remove_map)
+            $('#fileupload').on('click', '.remove.button.confirm', remove_map)
+            $('#fileupload').on('click', '.remove.button', confirm_remove_map)
+            $('#ini-title').on('click', '.editbutton', edit_characters)
+
+            $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         }
     })
+}
+
+function edit_characters()
+{
+    if ($(this).val() == 'Save') {
+        var iniorder = []
+        $('#characters tr').each(function() {
+            var tr = $(this)
+            var cls = tr.attr('class')
+            if (cls != 'deleteme') {
+                var name = tr.find('td.name:not(.newrow) input')
+                if (name.length) {
+                    iniorder.push({
+                        text: name.val(),
+                        type: cls,
+                        initiative: parseInt(tr.attr('data-initiative'))
+                    })
+                }
+            }
+        })
+        socket.emit('initiative', { page: currentpageid, order: iniorder })
+        $(this).val('Saving')
+    } else if ($(this).val() == 'Edit') {
+        $('#characters tr').each(function() {
+            var tr = $(this)
+            var nametd = tr.find('td.name')
+            if (nametd.length) {
+                tr.find('td.initiative').html('<input type="text" class="initiative" value="'+
+                                                tr.attr('data-initiative')+'">')
+                nametd.html('<input type="text" class="name" value="'+nametd.text()+'">')
+                tr.append('<td class="chartype"><input type="text" class="chartype" value="'+
+                                tr.attr('class')+'"></td>')
+
+            }
+        })
+        add_character_newrow()
+        $(this).val('Save')
+    }
+}
+
+function add_character_newrow()
+{
+    $('#characters').append('<tr data-initiative="" class="">'+
+        '<td class="initiative newrow"><input type="text" class="initiative" value=""></td>'+
+        '<td class="name newrow"><input type="text" class="name" placeholder="New Entry" value=""></td>'+
+        '<td class="chartype newrow"><input type="text" class="chartype" value="" placeholder="class"></td>'+
+        '</tr>')
+}
+
+function add_character_row(e)
+{
+    if ($(this).val()) {
+        var tr = $(this).closest('tr')
+        tr.find('td.newrow').removeClass('newrow')
+        add_character_newrow()
+    }
 }
 
 var lastuid = 0
@@ -70,13 +130,14 @@ function set_initiative(initiative)
             var html = ['<tbody>']
             for (var i = 0; i < initiative.order.length; i++) {
                 var item = initiative.order[i]
-                html.push('<tr class="',item.type,'"><td class="initiative">',
-                    (item.initiative || '&nbsp;'),
+                html.push('<tr data-initiative="'+(item.initiative||'')+'" class="',item.type,
+                    '"><td class="initiative">',(item.initiative||''),
                     '</td><td class="name">',item.text,'</td></tr>')
             }
-            html.push('<tr><td width= 50px;>&nbsp;</td><td width= 250px;>&nbsp;</td></tr>')
+            // html.push('<tr><td width= 50px;>&nbsp;</td><td width= 250px;>&nbsp;</td></tr>')
             html.push('</tbody>')
             $('#characters').html(html.join(''))
+            $('#ini-title .editbutton').val('Edit')
         }
     }
 }
@@ -171,6 +232,106 @@ function load() {
     $('#area-effects').on('click','tr.aoe td.aoe-close', close_aoe)
     $('#area-effects').on('input','input', oninput_effect)
     $('#area-effects').on('change','input', emit_effect)
+
+    $('#characters').on('mousedown', 'input', function(e) { e.stopPropagation() })
+    $('#characters').on('keyup','input', check_updown)
+    $('#characters').on('input','input.initiative', check_ordering)
+    $('#characters').on('input','td.newrow input', add_character_row)
+    $('#characters').on('input','td.chartype input', set_character_class)
+}
+
+function set_character_class(e)
+{
+    $(this).closest('tr').attr('class', ($(this).val() || 'deleteme'))
+}
+
+function check_ordering(e)
+{
+    var tr = $(this).closest('tr')
+    var ini = parseInt($(this).val().replace(/^([^0-9-]*)/,''))
+    if (isNaN(ini)) {
+        tr.attr('data-initiative', '')
+        return
+    }
+    tr.attr('data-initiative', ini)
+
+    // Look up
+    var tr_to = tr
+    var domove = false
+    while (tr_to.length) {
+        var ini_to = NaN
+        var trprev = tr_to
+        while (trprev.length && isNaN(ini_to)) {
+            trprev = trprev.prev()
+            ini_to = parseInt(trprev.attr('data-initiative'), 10)
+        }
+        if (!trprev.length || (ini_to >= ini)) {
+            if (domove) {
+                tr.insertBefore(tr_to)
+                $(this).focus()
+                return
+            }
+            break
+        }
+        // Mark that we passed a row
+        domove = true
+        tr_to = trprev
+    }
+
+    // Look down
+    tr_to = tr
+    domove = false
+    while (tr_to.length) {
+        var ini_to = NaN
+        var trnext = tr_to
+        while (trnext.length && isNaN(ini_to)) {
+            trnext = trnext.next()
+            ini_to = parseInt(trnext.attr('data-initiative'), 10)
+        }
+        if (!trnext.length || (ini_to <= ini)) {
+            if (domove) {
+                tr.insertAfter(tr_to)
+                $(this).focus()
+                return
+            }
+            break
+        }
+        // Mark that we passed a row
+        domove = true
+        tr_to = trnext
+    }
+}
+
+function check_updown(e)
+{
+    // console.log(e.which, e)
+    if (e.which == 38) { // UP
+        var tr = $(this).closest('tr')
+        var ptr = tr.prev()
+        if (ptr.length) {
+            tr.insertBefore(ptr)
+            $(this).focus()
+        }
+    }
+    if (e.which == 40) { // DOWN
+        var tr = $(this).closest('tr')
+        var ntr = tr.next()
+        if (ntr.length) {
+            tr.insertAfter(ntr)
+            $(this).focus()
+        }
+    }
+}
+
+function confirm_remove_map(e)
+{
+    var btn = $(this)
+    btn.addClass('confirm')
+    btn.text('Remove')
+    setTimeout(function() {
+        btn.removeClass('confirm')
+        btn.text('X')
+    }, 5000)
 }
 
 function remove_map(e)
