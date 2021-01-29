@@ -26,16 +26,16 @@
   "areas": {},
   "effects": {},
   "maps": {
-    "Overworld": {
-      "page": "test",
-      "name": "Overworld",
-      "path": "test/Overworld.png",
-      "active": true
-    },
     "Lame": {
       "page": "test",
       "name": "Lame",
       "path": "test/Lame.jpg",
+      "active": true
+    },
+    "Overworld": {
+      "page": "test",
+      "name": "Overworld",
+      "path": "test/Overworld.png",
       "active": false
     }
   },

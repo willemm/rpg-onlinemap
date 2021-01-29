@@ -260,8 +260,18 @@ td.aoe-close {
     z-index: 60;
 }
 
-.dmonly {
+.adminonly {
     display: none;
+}
+
+.noconnection {
+    display: none;
+    background-color: #fd8;
+    color: #c00;
+}
+
+body.disconnected .noconnection {
+    display: initial;
 }
 
 #ini-title .editbutton{
@@ -319,4 +329,9 @@ td.aoe-close {
 
 #fileupload label input {
     display: none;
+}
+
+#playerlink {
+    margin: 5px;
+    font-size: 12px;
 }

@@ -19,6 +19,7 @@ function setup_socket(socket)
         document.body.className = 'disconnected'
     })
     socket.on('page', function(page) {
+        document.body.className = 'connected'
         // console.log('page', page)
         currentpageid = page.id
         show_page(page)
@@ -38,9 +39,10 @@ function setup_socket(socket)
         $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
     })
     socket.on('pages', function(pages) {
+        document.body.className = 'connected'
         if (!adminonly) {
             adminonly = true
-            $('.dmonly').show()
+            $('.adminonly').show()
             socket.on('mapfile', add_mapfile)
             socket.on('mapremove', remove_mapfile)
 
@@ -217,6 +219,11 @@ function show_page(page)
     }
     if (page.initiative) {
         set_initiative({page: currentpageid, order: page.initiative})
+    }
+    if (page.token) {
+        var playerlink = window.location.origin+'#'+page.token
+        $('#playerlink a').text(playerlink)
+        $('#playerlink a').attr('href', playerlink)
     }
 }
 
