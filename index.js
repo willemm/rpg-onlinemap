@@ -11,7 +11,6 @@ http.listen(80, function() {
 
 const maxpages = 10
 let pages = {}
-let currentplayerpage = ''
 let adminsecret = process.env.DUNGEONMASTER_TOKEN
 let maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
 let maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 1024)
@@ -300,18 +299,18 @@ io.on('connection', function(socket) {
                         if (err.code != 'ENOENT') {
                             console.log('readmaps error', err)
                         }
-                    } else {
-                        for (const file of files) {
-                            const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
-                            if (m) {
-                                const mapname = m[1]
-                                const mappath = pageid+'/'+file
-                                socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
-                            }
+                        return
+                    }
+                    for (const file of files) {
+                        const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
+                        if (m) {
+                            const mapname = m[1]
+                            const mappath = pageid+'/'+file
+                            socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
                         }
-                        if (pages[pageid].map) {
-                            socket.emit('map', pages[pageid].map, pageid)
-                        }
+                    }
+                    if (pages[pageid].map) {
+                        socket.emit('map', pages[pageid].map, pageid)
                     }
                 })
             })
@@ -336,12 +335,6 @@ io.on('connection', function(socket) {
                 io.emit('pagetitle', pagetitle, pageid)
             })
             socket.emit('pages', pages)
-            if (currentplayerpage) {
-                socket.emit('page', pages[currentplayerpage], currentplayerpage)
-                if (pages[currentplayerpage].map) {
-                    socket.emit('map', pages[currentplayerpage].map, currentplayerpage)
-                }
-            }
             socket.emit('diskusage', diskusage)
         } else {
             let found = null
@@ -359,8 +352,24 @@ io.on('connection', function(socket) {
                 return
             }
             socket.emit('page', pages[found], found)
+            fs.readdir('./public/maps/'+pageid, null, (err, files) => {
+                if (err) {
+                    if (err.code != 'ENOENT') {
+                        console.log('readmaps error', err)
+                    }
+                    return
+                }
+                for (const file of files) {
+                    const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
+                    if (m) {
+                        const mapname = m[1]
+                        const mappath = pageid+'/'+file
+                        socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
+                    }
+                }
+            })
             if (pages[found].map) {
-                  socket.emit('map', pages[found].map, currentplayerpage)
+                  socket.emit('map', pages[found].map, found)
             }
         }
         socket.on('marker', (marker, pageid) => {

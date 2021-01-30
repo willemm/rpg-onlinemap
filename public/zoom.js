@@ -13,13 +13,13 @@ function setup_socket(socket)
     var token = window.location.hash.replace(/^#/,'')
     socket.on('connect', function() {
         socket.emit('join', token)
-        document.body.className = 'connecting'
+        $(document.body).removeClass('disconnected connecting connected').addClass('connecting')
     })
     socket.on('disconnect', function() {
-        document.body.className = 'disconnected'
+        $(document.body).removeClass('disconnected connecting connected').addClass('disconnected')
     })
     socket.on('page', function(page, pageid) {
-        document.body.className = 'connected'
+        $(document.body).removeClass('disconnected connecting connected').addClass('connected')
         currentpageid = pageid
         sessionStorage.setItem('currentpageid', pageid)
         if (pageid && adminonly) {
@@ -55,7 +55,7 @@ function setup_socket(socket)
 
 function get_pages(pages)
 {
-    document.body.className = 'connected'
+    $(document.body).removeClass('disconnected connecting connected').addClass('connected')
     if (!adminonly) {
         adminonly = true
         $('.adminonly').show()
@@ -463,19 +463,23 @@ function new_maprow(e)
 function add_mapfile(map, pageid)
 {
     if (pageid != currentpageid) { return }
-    var mapfileent = $('#fileupload tr.mapupload[data-page="'+pageid+'"][data-name="'+map.name+'"]')
-    if (!mapfileent.length) {
-        mapfileent = $('<tr class="mapupload" data-name="'+map.name+'" data-page="'+pageid+'">'+
-                          '<td><input class="active" type="radio" name="mapactive" '+(map.active?'checked':'')+'></td>'+
-                          '<td class="mapname">'+map.name+'</td>'+
-                          '<td><label><div class="upload button">browse</div>'+
-                          '<input name="mapimage" type="file" class="mapimage" value="Map" '+
-                          'accept=".jpg,.png,.gif,image/*"></label></td>'+
-                          '<td class="removemap"><div class="remove button">X</div></td>'+
-                       '</tr>').insertBefore('#fileupload tr.mapuploadnew')
+    if (adminonly) {
+        var mapfileent = $('#fileupload tr.mapupload[data-page="'+pageid+'"][data-name="'+map.name+'"]')
+        if (!mapfileent.length) {
+            mapfileent = $('<tr class="mapupload" data-name="'+map.name+'" data-page="'+pageid+'">'+
+                              '<td><input class="active" type="radio" name="mapactive" '+(map.active?'checked':'')+'></td>'+
+                              '<td class="mapname">'+map.name+'</td>'+
+                              '<td><label><div class="upload button">browse</div>'+
+                              '<input name="mapimage" type="file" class="mapimage" value="Map" '+
+                              'accept=".jpg,.png,.gif,image/*"></label></td>'+
+                              '<td class="removemap"><div class="remove button">X</div></td>'+
+                           '</tr>').insertBefore('#fileupload tr.mapuploadnew')
+        }
     }
-    if (map.name == 'Background') {
-        $('body').css({'background-image': 'url("maps/'+map.path+'")'})
+    console.log(map.name)
+    if (map.name.match(/^[A-Za-z0-9_-]+$/)) {
+        console.log('OK', '.backgrondimage-'+map.name)
+        $('.backgroundimage-'+map.name).css({'background-image': 'url("maps/'+map.path+'")'})
     }
 }
 
