@@ -22,7 +22,7 @@ function setup_socket(socket)
         document.body.className = 'connected'
         currentpageid = pageid
         sessionStorage.setItem('currentpageid', pageid)
-        if (pageid) {
+        if (pageid && adminonly) {
             $('#pagetitle').attr('placeholder', 'Session title')
             $('.editonly').show()
         } else {
@@ -79,6 +79,10 @@ function setup_socket(socket)
         var storedpageid = sessionStorage.getItem('currentpageid')
         if (storedpageid) {
             socket.emit('selectpage', storedpageid)
+        }
+        if (currentpageid) {
+            $('#pagetitle').attr('placeholder', 'Session title')
+            $('.editonly').show()
         }
     })
 }
