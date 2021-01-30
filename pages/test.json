@@ -4,74 +4,25 @@
   "title": "test",
   "active": true,
   "markers": {
-    "kkigbpqn": {
-      "id": "kkigbpqn",
-      "page": "test",
-      "text": "B",
-      "cls": "marker char_Boph__Jasper_ pc pc",
+    "kkjnfda3": {
+      "id": "kkjnfda3",
+      "text": "J",
+      "cls": "marker char_Jan__Frances_ pc pc",
       "player": true,
-      "imx": 0.28566754991167104,
-      "imy": 0.4140678690825886
-    },
-    "kkii8v0e": {
-      "id": "kkii8v0e",
-      "page": "test",
-      "text": "M",
-      "cls": "marker char_Moth__Willem_ pc pc",
-      "player": true,
-      "imx": 0.132726680286879,
-      "imy": 0.38951623181345413
-    },
-    "kkim7sg0": {
-      "id": "kkim7sg0",
-      "page": "test",
-      "text": "R",
-      "cls": "marker char_Roos__Emma_ pc pc",
-      "player": true,
-      "imx": 0.4635675991941437,
-      "imy": 0.6039683466617455
-    },
-    "kkim7vwz": {
-      "id": "kkim7vwz",
-      "page": "test",
-      "text": "M",
-      "cls": "marker char_Moth__Willem_ pc pc",
-      "player": true,
-      "imx": 0.5671027173043799,
-      "imy": 0.7061877692339239
-    },
-    "kkimepe2": {
-      "id": "kkimepe2",
-      "page": "test",
-      "text": "S",
-      "cls": "marker char_Spiritual_Weapon pc pc",
-      "player": true,
-      "imx": 0.28852031394177535,
-      "imy": 0.367963745437582
+      "imx": 0.4662602460993988,
+      "imy": 0.3185888529427852
     }
   },
   "areas": {},
   "effects": {},
-  "maps": {
-    "Lame": {
-      "page": "test",
-      "name": "Lame",
-      "path": "test/Lame.jpg",
-      "active": false
-    },
-    "Overworld": {
-      "page": "test",
-      "name": "Overworld",
-      "path": "test/Overworld.png",
-      "active": false
-    }
-  },
   "zoom": {
-    "page": "test",
-    "x": 0,
-    "y": 0,
-    "w": 0,
-    "h": 0
+    "src": "maps/test/Lame.jpg?kkjns6dd",
+    "imw": 920,
+    "imh": 690,
+    "x": 368,
+    "y": 381,
+    "w": 173,
+    "h": 130
   },
   "initiative": [
     {
@@ -104,5 +55,17 @@
       "text": "Boph (Jasper)",
       "initiative": null
     }
-  ]
+  ],
+  "maps": {
+    "Lame": {
+      "name": "Lame",
+      "path": "test/Lame.jpg",
+      "active": false
+    },
+    "Overworld": {
+      "name": "Overworld",
+      "path": "test/Overworld.png",
+      "active": true
+    }
+  }
 }

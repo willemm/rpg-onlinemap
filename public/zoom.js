@@ -18,10 +18,9 @@ function setup_socket(socket)
     socket.on('disconnect', function() {
         document.body.className = 'disconnected'
     })
-    socket.on('page', function(page) {
+    socket.on('page', function(page, pageid) {
         document.body.className = 'connected'
-        // console.log('page', page)
-        currentpageid = page.id
+        currentpageid = pageid
         show_page(page)
     })
     socket.on('initiative', set_initiative)
@@ -30,21 +29,23 @@ function setup_socket(socket)
     socket.on('effect', set_effect)
     socket.on('removearea', remove_area)
     socket.on('removeeffect', remove_effect)
-    socket.on('zoom', function(zoom) {
-        if (zoom.page == currentpageid) {
+    socket.on('zoom', function(zoom, pageid) {
+        if (pageid == currentpageid) {
             set_zoom(zoom)
         }
     })
-    socket.on('map', function(mapname) {
-        $('#map img').attr('src', 'maps/'+mapname+'?'+get_uid())
+    socket.on('map', function(map, pageid) {
+        if (pageid == currentpageid) {
+            $('#map img').attr('src', 'maps/'+map.path+'?'+get_uid())
+        }
     })
+    socket.on('mapfile', add_mapfile)
+    socket.on('mapremove', remove_mapfile)
     socket.on('pages', function(pages) {
         document.body.className = 'connected'
         if (!adminonly) {
             adminonly = true
             $('.adminonly').show()
-            socket.on('mapfile', add_mapfile)
-            socket.on('mapremove', remove_mapfile)
 
             $('#fileupload').on('change','input[type="file"].mapimage', upload_map)
 
@@ -77,7 +78,7 @@ function edit_characters()
                 }
             }
         })
-        socket.emit('initiative', { page: currentpageid, order: iniorder })
+        socket.emit('initiative', { order: iniorder }, currentpageid)
         $(this).val('Saving')
     } else if ($(this).val() == 'Edit') {
         $('#characters tr').each(function() {
@@ -125,29 +126,27 @@ function get_uid()
     return newid.toString(36)
 }
 
-function set_initiative(initiative)
+function set_initiative(initiative, pageid)
 {
-    if (initiative.page == currentpageid) {
-        if (initiative.order) {
-            var html = ['<tbody>']
-            for (var i = 0; i < initiative.order.length; i++) {
-                var item = initiative.order[i]
-                html.push('<tr data-initiative="'+(item.initiative||'')+'" class="',item.type,
-                    '"><td class="initiative">',(item.initiative||''),
-                    '</td><td class="name">',item.text,'</td></tr>')
-            }
-            // html.push('<tr><td width= 50px;>&nbsp;</td><td width= 250px;>&nbsp;</td></tr>')
-            html.push('</tbody>')
-            $('#characters').html(html.join(''))
-            $('#ini-title .editbutton').val('Edit')
+    if (pageid != currentpageid) { return }
+    if (initiative) {
+        var html = ['<tbody>']
+        for (var i = 0; i < initiative.length; i++) {
+            var item = initiative[i]
+            html.push('<tr data-initiative="'+(item.initiative||'')+'" class="',item.type,
+                '"><td class="initiative">',(item.initiative||''),
+                '</td><td class="name">',item.text,'</td></tr>')
         }
+        // html.push('<tr><td width= 50px;>&nbsp;</td><td width= 250px;>&nbsp;</td></tr>')
+        html.push('</tbody>')
+        $('#characters').html(html.join(''))
+        $('#ini-title .editbutton').val('Edit')
     }
 }
 
-function set_effect(effect)
+function set_effect(effect, pageid)
 {
-    // console.log('effect', effect)
-    if (effect.page != currentpageid) { return }
+    if (pageid != currentpageid) { return }
     if (!$('#zoompopup').is(':visible')) { return }
     var effecttr = $('#area-effects .aoe[data-id="'+effect.id+'"]')
     if (!effecttr.length) {
@@ -162,10 +161,9 @@ function set_effect(effect)
     }
 }
 
-function set_area(area)
+function set_area(area, pageid)
 {
-    // console.log('area', area)
-    if (area.page != currentpageid) { return }
+    if (pageid != currentpageid) { return }
     if (!$('#zoompopup').is(':visible')) { return }
     var areadiv = $('#zoomoverlay .aoe[data-id="'+area.id+'"]')
     if (!areadiv.length) {
@@ -179,9 +177,9 @@ function set_area(area)
     areadiv.css({left: x+'px', top: y+'px', width: w+'px', height: h+'px'})
 }
 
-function set_marker(marker)
+function set_marker(marker, pageid)
 {
-    if (marker.page != currentpageid) { return }
+    if (pageid != currentpageid) { return }
     if (!$('#zoompopup').is(':visible')) { return }
     var markerdiv = $('#markers .marker[data-id="'+marker.id+'"]')
     if (!markerdiv.length) {
@@ -199,26 +197,26 @@ function show_page(page)
     }
     if (page.markers) {
         for (mr in page.markers) {
-            set_marker(page.markers[mr])
+            set_marker(page.markers[mr], page.id)
         }
     }
     if (page.areas) {
         for (ar in page.areas) {
-            set_area(page.areas[ar])
+            set_area(page.areas[ar], page.id)
         }
     }
     if (page.effects) {
         for (ar in page.effects) {
-            set_effect(page.effects[ar])
+            set_effect(page.effects[ar], page.id)
         }
     }
     if (page.maps) {
         for (mf in page.maps) {
-            add_mapfile(page.maps[mf])
+            add_mapfile(page.maps[mf], page.id)
         }
     }
     if (page.initiative) {
-        set_initiative({page: currentpageid, order: page.initiative})
+        set_initiative(page.initiative, page.id)
     }
     if (page.token) {
         var playerlink = window.location.origin+'#'+page.token
@@ -311,7 +309,6 @@ function check_ordering(e)
 
 function check_updown(e)
 {
-    // console.log(e.which, e)
     if (e.which == 38) { // UP
         var tr = $(this).closest('tr')
         var ptr = tr.prev()
@@ -344,13 +341,13 @@ function confirm_remove_map(e)
 function remove_map(e)
 {
     var tr = $(this).closest('tr')
-    socket.emit('mapremove', { page: tr.attr('data-page'), name: tr.attr('data-name')})
+    socket.emit('mapremove', tr.attr('data-name'), tr.attr('data-page'))
 }
 
 function select_mapfile(e)
 {
     var tr = $(this).closest('tr')
-    socket.emit('map', { page: tr.attr('data-page'), name: tr.attr('data-name')})
+    socket.emit('map', { name: tr.attr('data-name') }, tr.attr('data-page'))
 }
 
 function new_maprow(e)
@@ -369,11 +366,12 @@ function new_maprow(e)
     }
 }
 
-function add_mapfile(map)
+function add_mapfile(map, pageid)
 {
-    var mapfileent = $('#fileupload tr.mapupload[data-page="'+map.page+'"][data-name="'+map.name+'"]')
+    if (pageid != currentpageid) { return }
+    var mapfileent = $('#fileupload tr.mapupload[data-page="'+pageid+'"][data-name="'+map.name+'"]')
     if (!mapfileent.length) {
-        mapfileent = $('<tr class="mapupload" data-name="'+map.name+'" data-page="'+map.page+'">'+
+        mapfileent = $('<tr class="mapupload" data-name="'+map.name+'" data-page="'+pageid+'">'+
                           '<td><input class="active" type="radio" name="mapactive" '+(map.active?'checked':'')+'></td>'+
                           '<td class="mapname">'+map.name+'</td>'+
                           '<td><label><div class="upload button">browse</div>'+
@@ -384,9 +382,10 @@ function add_mapfile(map)
     }
 }
 
-function remove_mapfile(map)
+function remove_mapfile(map, pageid)
 {
-    $('#fileupload tr.mapupload[data-page="'+map.page+'"][data-name="'+map.name+'"]').remove()
+    if (pageid != currentpageid) { return }
+    $('#fileupload tr.mapupload[data-page="'+pageid+'"][data-name="'+map.name+'"]').remove()
 }
 
 function upload_map(e)
@@ -415,7 +414,7 @@ function upload_map(e)
     filetr.removeClass('failed').addClass('uploading')
     reader.onload = function(e) {
         var data = e.target.result
-        socket.emit('mapupload', {page: filepage, name: filename, fileext: fileext, data: data, active: active})
+        socket.emit('mapupload', {name: filename, fileext: fileext, data: data, active: active}, filepage)
         filetr.removeClass('uploading')
     }
     reader.readAsBinaryString(file)
@@ -451,11 +450,10 @@ function add_aoe()
     $('#zoomoverlay').addClass('draw-aoe')
     socket.emit('effect', {
         id:     aoe.attr('data-id'),
-        page:   aoe.attr('data-page'),
         color:  aoe.attr('data-color'),
         text:   aoe.find('input').val(),
         player: true
-    })
+    }, aoe.attr('data-page'))
     return false
 }
 
@@ -491,41 +489,30 @@ function emit_effect()
     var aoe = inp.closest('tr.aoe')
     socket.emit('effect', {
         id:    aoe.attr('data-id'),
-        page:  aoe.attr('data-page'),
         color: aoe.attr('data-color'),
         text:  inp.val(),
         player: true
-    })
+    }, aoe.attr('data-page'))
 }
 
 function close_aoe()
 {
     var tr = $(this).parent('tr')
-    socket.emit('removeeffect', {
-        page:   tr.attr('data-page'),
-        id:     tr.attr('data-id')
-    })
+    socket.emit('removeeffect', { id: tr.attr('data-id') }, tr.attr('data-page'))
 }
 
-function remove_area(area)
+function remove_area(area, pageid)
 {
-    // console.log('remove_area', area)
-    if (area.page != currentpageid) { return }
+    if (pageid != currentpageid) { return }
     $('#zoomoverlay .aoe[data-id="'+area.id+'"]').remove()
 }
 
-function remove_effect(effect)
+function remove_effect(effect, pageid)
 {
-    // console.log('remove_effect', effect)
+    if (pageid != currentpageid) { return }
     var effecttr = $('#area-effects .aoe[data-id="'+effect.id+'"]')
     effecttr.remove()
     $('#area-effects div.selected').removeClass('selected')
-
-    /*
-    var color = tr.attr('data-color')
-    $('#zoomoverlay div.aoe[data-color="'+color+'"]').remove()
-    $('#area-effects div.selected').removeClass('selected')
-    */
 }
 
 function select_aoe(e)
@@ -624,7 +611,6 @@ function emit_area(aoe)
     var imh = aoe.height() / zoompos.h
     socket.emit('area', {
         id:    aoe.attr('data-id'),
-        page:  aoe.attr('data-page'),
         cls:   aoe.attr('class'),
         imx:   imx,
         imy:   imy,
@@ -632,7 +618,7 @@ function emit_area(aoe)
         imh:   imh,
         color: aoe.attr('data-color'),
         player: true
-    })
+    }, aoe.attr('data-page'))
 }
 
 function start_marker(e)
@@ -690,13 +676,12 @@ function drag_marker(e)
         if (nextmovesend < now) {
             socket.emit('marker', {
                 id:     marker.attr('data-id'),
-                page:   marker.attr('data-page'),
                 imx:    imx,
                 imy:    imy,
                 text:   marker.text(),
                 player: marker.hasClass('pc'),
                 cls:    marker.attr('class')
-            })
+            }, marker.attr('data-page'))
             nextmovesend = now + 200
         }
         return false
@@ -708,13 +693,12 @@ function drag_marker(e)
         var imy = (e.pageY - zoompos.y)/zoompos.h
         socket.emit('marker', {
             id:     marker.attr('data-id'),
-            page:   marker.attr('data-page'),
             imx:    imx,
             imy:    imy,
             text:   marker.text(),
             player: marker.hasClass('pc'),
             cls:    marker.attr('class')
-        })
+        }, marker.attr('data-page'))
         $(window).off('mousemove').off('mouseup')
         return false
     })
@@ -742,7 +726,7 @@ function selector_pos(e, elem) {
     var mappos = elem.offset()
     x1 -= mappos.left
     y1 -= mappos.top
-    return { x: x1, y: y1, w: w, h: h, page: currentpageid }
+    return { x: x1, y: y1, w: w, h: h }
 }
 
 function size_map(e) {
@@ -754,15 +738,19 @@ function size_map(e) {
 function show_zoom(e) {
     $(this).off('mousemove').off('mouseup')
     var zoom = selector_pos(e, $('#map'))
-    socket.emit('zoom', zoom)
+    var img = $('#map img')
+    zoom.src = img.attr('src')
+    zoom.imw = img.width()
+    zoom.imh = img.height()
+    socket.emit('zoom', zoom, currentpageid)
     set_zoom(zoom)
 }
 
-function set_zoom(sp) {
+function set_zoom(sp)
+{
     if (!sp || sp.w < 20 || sp.h < 20) {
         return hide_zoom()
     }
-    // setData('mapzoom',sp)
     var zoomw = $('#zoompopup').width()
     var zoomh = $('#zoompopup').height()
     var scalex = zoomw / sp.w
@@ -781,13 +769,12 @@ function set_zoom(sp) {
         zoomh = Math.round(newh)
         scale = scalex
     }
-    var img = $('#map img')
     $('#zoom').css({width: zoomw+'px', height: zoomh+'px', left: zoomx+'px', top: zoomy+'px'})
-    $('#zoom').html('<img src="'+img.attr('src')+'">')
+    $('#zoom').html('<img src="'+sp.src+'">')
     $('#zoomoverlay').css({width: zoomw+'px', height: zoomh+'px', left: zoomx+'px', top: zoomy+'px'})
     $('#zoomclose').css({right: (zoomx-40)+'px', top: zoomy+'px'})
-    var iw = img.width() * scale
-    var ih = img.height() * scale
+    var iw = sp.imw * scale
+    var ih = sp.imh * scale
     var ix = -sp.x * scale
     var iy = -sp.y * scale
     $('#zoom img').css({left:ix+'px', top:iy+'px', width: iw+'px', height: ih+'px'})
@@ -817,6 +804,6 @@ function hide_zoom()
         $('#markers').html('')
         $('#zoomoverlay div.aoe').remove()
         $('#area-effects tr.aoe').remove()
-        socket.emit('zoom', { page: currentpageid, x: 0, y: 0, w: 0, h: 0 })
+        socket.emit('zoom', { x: 0, y: 0, w: 0, h: 0 }, currentpageid)
     }
 }

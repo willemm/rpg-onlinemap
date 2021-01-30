@@ -26,7 +26,6 @@ for (const dir of fs.readdirSync('./public/maps/', { withFileTypes: true })) {
                 if (m) {
                     const mapname = m[1]
                     newpage.maps[mapname] = {
-                        page: dir.name,
                         name: mapname,
                         path: dir.name+'/'+file,
                         active: false
@@ -72,26 +71,34 @@ io.on('connection', function(socket) {
                     initiative: []
                 }
                 socket.emit('pages', pages)
-                socket.emit('page', pages[pageid])
+                socket.emit('page', pages[pageid], pageid)
                 save_pages()
             })
-            socket.on('zoom', (zoom) => {
-                if (!pages[zoom.page]) { return }
-                pages[zoom.page].zoom = zoom
-                io.emit('zoom', zoom)
-                for (const i in pages[zoom.page].markers) {
-                    io.emit('marker', pages[zoom.page].markers[i])
+            socket.on('zoom', (zoom, pageid) => {
+                if (!pages[pageid]) { return }
+                pages[pageid].zoom = {
+                  src: zoom.src,
+                  imw: zoom.imw,
+                  imh: zoom.imh,
+                  x:   zoom.x,
+                  y:   zoom.y,
+                  w:   zoom.w,
+                  h:   zoom.h
                 }
-                for (const i in pages[zoom.page].effects) {
-                    io.emit('effect', pages[zoom.page].effects[i])
+                io.emit('zoom', pages[pageid].zoom, pageid)
+                for (const i in pages[pageid].markers) {
+                    io.emit('marker', pages[pageid].markers[i], pageid)
                 }
-                for (const i in pages[zoom.page].areas) {
-                    io.emit('area', pages[zoom.page].areas[i])
+                for (const i in pages[pageid].effects) {
+                    io.emit('effect', pages[pageid].effects[i], pageid)
+                }
+                for (const i in pages[pageid].areas) {
+                    io.emit('area', pages[pageid].areas[i], pageid)
                 }
                 save_pages()
             })
-            socket.on('mapupload', (map) => {
-                if (!pages[map.page]) { return }
+            socket.on('mapupload', (map, pageid) => {
+                if (!pages[pageid]) { return }
                 if (map.data.length > 10000000) {
                     console.log('mapupload', 'file too large', map.data.length)
                     return
@@ -104,7 +111,7 @@ io.on('connection', function(socket) {
                     console.log('mapupload', 'illegal file extension', map.name)
                     return
                 }
-                map.path = map.page+'/'+map.name+'.'+map.fileext
+                map.path = pageid+'/'+map.name+'.'+map.fileext
                 const mappath = './public/maps/'+map.path
                 console.log('mapupload', map.name, map.data.length)
                 fs.writeFile(mappath, map.data, 'Binary', function(err) {
@@ -112,34 +119,32 @@ io.on('connection', function(socket) {
                         console.log('mapupload error', err)
                         return
                     }
-                    pages[map.page].maps[map.name] = {
-                        page: map.page,
+                    pages[pageid].maps[map.name] = {
                         name: map.name,
                         path: map.path,
                         active: map.active
                     }
                     if (map.active) {
-                        for (pagemap in pages[map.page].maps) {
-                            pages[map.page].maps[pagemap].active = false
+                        for (pagemap in pages[pageid].maps) {
+                            pages[pageid].maps[pagemap].active = false
                         }
-                        pages[map.page].maps[map.name].active = true
-                        io.emit('map', pages[map.page].maps[map.name].path)
+                        pages[pageid].maps[map.name].active = true
+                        io.emit('map', pages[pageid].maps[map.name], pageid)
                     }
-                    io.emit('mapfile', pages[map.page].maps[map.name])
+                    io.emit('mapfile', pages[pageid].maps[map.name], pageid)
                     console.log('mapupload written', mappath)
                     save_pages()
                 })
             })
-            socket.on('mapremove', (map) => {
-                if (!pages[map.page] || !pages[map.page].maps[map.name]) {
+            socket.on('mapremove', (mapname, pageid) => {
+                if (!pages[pageid] || !pages[pageid].maps[mapname]) {
                     socket.emit('mapremove', {
-                        page: map.page,
-                        name: map.name,
+                        name: mapname,
                         error: 'Not found'
-                    })
+                    }, pageid)
                     return
                 }
-                const mappath = './public/maps/'+pages[map.page].maps[map.name].path
+                const mappath = './public/maps/'+pages[pageid].maps[mapname].path
                 console.log('Removing mapfile '+mappath)
                 fs.unlink(mappath, function(err) {
                     if (err) {
@@ -147,27 +152,25 @@ io.on('connection', function(socket) {
                         return
                     }
                     console.log('File removed: '+mappath)
-                    let deletedmap = pages[map.page].maps[map.name]
-                    delete pages[map.page].maps[map.name]
-                    io.emit('mapremove', deletedmap)
+                    let deletedmap = pages[pageid].maps[mapname]
+                    delete pages[pageid].maps[mapname]
+                    io.emit('mapremove', deletedmap, pageid)
                     save_pages()
                 })
             })
-            socket.on('map', (map) => {
-                if (!pages[map.page] || !pages[map.page].maps[map.name]) {
+            socket.on('map', (map, pageid) => {
+                if (!pages[pageid] || !pages[pageid].maps[map.name]) {
                     return
                 }
-                for (pagemap in pages[map.page].maps) {
-                    pages[map.page].maps[pagemap].active = false
+                for (pagemap in pages[pageid].maps) {
+                    pages[pageid].maps[pagemap].active = false
                 }
-                pages[map.page].maps[map.name].active = true
-                io.emit('map', pages[map.page].maps[map.name].path)
+                pages[pageid].maps[map.name].active = true
+                io.emit('map', pages[pageid].maps[map.name], pageid)
                 save_pages()
             })
-            socket.on('initiative', (initiative) => {
-                if (!pages[initiative.page]) {
-                    return
-                }
+            socket.on('initiative', (initiative, pageid) => {
+                if (!pages[pageid]) { return }
 
                 if (initiative.order) {
                     let order = []
@@ -178,17 +181,18 @@ io.on('connection', function(socket) {
                             initiative: o.initiative
                         })
                     }
-                    pages[initiative.page].initiative = order
-                    io.emit('initiative', { page: initiative.page, order: order})
+                    pages[pageid].initiative = order
+                    io.emit('initiative', order, pageid)
                 }
             })
             socket.emit('pages', pages)
             if (currentplayerpage) {
-                socket.emit('page', pages[currentplayerpage])
+                socket.emit('page', pages[currentplayerpage], currentplayerpage)
                 for (const key in pages[currentplayerpage].maps) {
                     const map = pages[currentplayerpage].maps[key]
-                    if (map.active)
-                    socket.emit('map', map.path)
+                    if (map.active) {
+                      socket.emit('map', map, currentplayerpage)
+                    }
                 }
             }
         } else {
@@ -206,75 +210,73 @@ io.on('connection', function(socket) {
                 socket.disconnect()
                 return
             }
-            socket.emit('page', pages[found])
+            socket.emit('page', pages[found], found)
             for (const key in pages[found].maps) {
                 const map = pages[found].maps[key]
-                if (map.active)
-                socket.emit('map', map.path)
+                if (map.active) {
+                  socket.emit('map', map, found)
+                }
             }
         }
-        socket.on('marker', (marker) => {
-            if (!pages[marker.page]) { return }
-            if (!pages[marker.page].markers[marker.id]) {
+        socket.on('marker', (marker, pageid) => {
+            if (!pages[pageid]) { return }
+            if (!pages[pageid].markers[marker.id]) {
                 if (!admin) { return }
-                pages[marker.page].markers[marker.id] = {
+                pages[pageid].markers[marker.id] = {
                     id:     marker.id,
-                    page:   marker.page,
                     text:   marker.text,
                     cls:    marker.cls,
                     player: marker.player
                 }
             }
-            if (!admin && !pages[marker.page].markers[marker.id].player) { return }
-            pages[marker.page].markers[marker.id].imx = marker.imx
-            pages[marker.page].markers[marker.id].imy = marker.imy
-            io.emit('marker', pages[marker.page].markers[marker.id])
+            if (!admin && !pages[pageid].markers[marker.id].player) { return }
+            pages[pageid].markers[marker.id].imx = marker.imx
+            pages[pageid].markers[marker.id].imy = marker.imy
+            io.emit('marker', pages[pageid].markers[marker.id], pageid)
             save_pages()
         })
-        socket.on('area', (area) => {
-            if (!pages[area.page]) { return }
-            if (!pages[area.page].areas[area.id]) {
-                pages[area.page].areas[area.id] = {
+        socket.on('area', (area, pageid) => {
+            if (!pages[pageid]) { return }
+            if (!pages[pageid].areas[area.id]) {
+                pages[pageid].areas[area.id] = {
                     id:     area.id,
-                    page:   area.page,
                     cls:    area.cls,
                     color:  area.color,
                     player: area.player
                 }
             }
-            if (!admin && !pages[area.page].areas[area.id].player) { return }
-            pages[area.page].areas[area.id].imx = area.imx
-            pages[area.page].areas[area.id].imy = area.imy
-            pages[area.page].areas[area.id].imw = area.imw
-            pages[area.page].areas[area.id].imh = area.imh
-            io.emit('area', pages[area.page].areas[area.id])
+            if (!admin && !pages[pageid].areas[area.id].player) { return }
+            pages[pageid].areas[area.id].imx = area.imx
+            pages[pageid].areas[area.id].imy = area.imy
+            pages[pageid].areas[area.id].imw = area.imw
+            pages[pageid].areas[area.id].imh = area.imh
+            io.emit('area', pages[pageid].areas[area.id], pageid)
             save_pages()
         })
-        socket.on('effect', (effect) => {
-            if (!pages[effect.page]) { return }
-            if (!pages[effect.page].effects[effect.id]) {
-                pages[effect.page].effects[effect.id] = {
+        socket.on('effect', (effect, pageid) => {
+            if (!pages[pageid]) { return }
+            if (!pages[pageid].effects[effect.id]) {
+                pages[pageid].effects[effect.id] = {
                     id:     effect.id,
-                    page:   effect.page,
                     color:  effect.color,
                     player: effect.player
                 }
             }
-            pages[effect.page].effects[effect.id].text = effect.text
-            io.emit('effect', pages[effect.page].effects[effect.id])
+            pages[pageid].effects[effect.id].text = effect.text
+            io.emit('effect', pages[pageid].effects[effect.id], pageid)
             save_pages()
         })
-        socket.on('removeeffect', (effect) => {
-            if (!pages[effect.page]) { return }
-            let effecttd = pages[effect.page].effects[effect.id]
+        socket.on('removeeffect', (effect, pageid) => {
+            if (!pages[pageid]) { return }
+            let effecttd = pages[pageid].effects[effect.id]
             if (effecttd) {
-                delete pages[effect.page].effects[effect.id]
-                io.emit('removeeffect', effecttd)
-                for (const i in pages[effecttd.page].areas) {
-                    var area = pages[effecttd.page].areas[i]
+                delete pages[pageid].effects[effect.id]
+                io.emit('removeeffect', effecttd, pageid)
+                for (const i in pages[pageid].areas) {
+                    var area = pages[pageid].areas[i]
                     if (area.color == effecttd.color) {
-                        io.emit('removearea', area)
-                        delete pages[effecttd.page].areas[i]
+                        io.emit('removearea', area, pageid)
+                        delete pages[pageid].areas[i]
                     }
                 }
             }
