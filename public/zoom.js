@@ -194,6 +194,7 @@ function set_marker(marker, pageid)
     var x = marker.imx * zoompos.w + zoompos.x - markerdiv.width()/2
     var y = marker.imy * zoompos.h + zoompos.y - markerdiv.height()/2
     markerdiv.css({left:x+'px',top:y+'px'})
+    markerdiv.text(marker.text)
 }
 
 function show_page(page)
@@ -655,7 +656,10 @@ function start_marker(e)
         if (marker.length) {
             if (multi) {
                 if (marker.length == 1) {
-                    marker.text('1')
+                    socket.emit('marker', {
+                        id:     marker.attr('data-id'),
+                        text:   '1'
+                    }, marker.attr('data-page'))
                 }
                 mid = marker.length + 1
             } else {
@@ -693,7 +697,7 @@ function drag_marker(e)
                 imx:    imx,
                 imy:    imy,
                 text:   marker.text(),
-                player: marker.hasClass('pc'),
+                player: true, // false to disable plebs to move them
                 cls:    marker.attr('class')
             }, marker.attr('data-page'))
             nextmovesend = now + 200
@@ -802,6 +806,7 @@ function set_zoom(sp)
         w: iw,
         h: ih
     }
+    socket.emit('getmarkers', currentpageid)
     return false
 }
 

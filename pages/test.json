@@ -7,13 +7,10 @@
   "areas": {},
   "effects": {},
   "zoom": {
-    "src": "maps/test/Lame.jpg?kkjrypnt",
-    "imw": 1121.33,
-    "imh": 841,
-    "x": 366,
-    "y": 84,
-    "w": 409,
-    "h": 352
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0
   },
   "initiative": [
     {
@@ -21,6 +18,12 @@
       "text": "Jan (Frances)",
       "id": "kkjr1iax",
       "initiative": 17
+    },
+    {
+      "type": "npc2",
+      "text": "Goblin",
+      "id": "kkjs3c2o",
+      "initiative": 14
     },
     {
       "type": "pc",
@@ -33,6 +36,12 @@
       "text": "Moth (Willem)",
       "id": "kkjr1iaz",
       "initiative": 10
+    },
+    {
+      "type": "npc1",
+      "text": "Guard",
+      "id": "kkjs3c2p",
+      "initiative": 9
     },
     {
       "type": "xx",

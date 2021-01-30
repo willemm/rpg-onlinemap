@@ -74,15 +74,6 @@ io.on('connection', function(socket) {
                   h:   zoom.h
                 }
                 io.emit('zoom', pages[pageid].zoom, pageid)
-                for (const i in pages[pageid].markers) {
-                    io.emit('marker', pages[pageid].markers[i], pageid)
-                }
-                for (const i in pages[pageid].effects) {
-                    io.emit('effect', pages[pageid].effects[i], pageid)
-                }
-                for (const i in pages[pageid].areas) {
-                    io.emit('area', pages[pageid].areas[i], pageid)
-                }
                 save_pages()
             })
             socket.on('mapupload', (upmap, pageid) => {
@@ -278,8 +269,15 @@ io.on('connection', function(socket) {
                 }
             }
             if (!admin && !pages[pageid].markers[marker.id].player) { return }
-            pages[pageid].markers[marker.id].imx = marker.imx
-            pages[pageid].markers[marker.id].imy = marker.imy
+            if (marker.imx != undefined) {
+                pages[pageid].markers[marker.id].imx = marker.imx
+            }
+            if (marker.imy != undefined) {
+                pages[pageid].markers[marker.id].imy = marker.imy
+            }
+            if (marker.text != undefined) {
+                pages[pageid].markers[marker.id].text = marker.text
+            }
             io.emit('marker', pages[pageid].markers[marker.id], pageid)
             save_pages()
         })
@@ -329,6 +327,17 @@ io.on('connection', function(socket) {
                 }
             }
             save_pages()
+        })
+        socket.on('getmarkers', (pageid) => {
+            for (const i in pages[pageid].markers) {
+                socket.emit('marker', pages[pageid].markers[i], pageid)
+            }
+            for (const i in pages[pageid].effects) {
+                socket.emit('effect', pages[pageid].effects[i], pageid)
+            }
+            for (const i in pages[pageid].areas) {
+                socket.emit('area', pages[pageid].areas[i], pageid)
+            }
         })
     })
     socket.on('disconnect', () => {

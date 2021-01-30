@@ -267,6 +267,7 @@ td.aoe-close {
 #zoomoverlay {
     position: absolute;
     z-index: 20;
+    overflow: hidden;
 }
 
 #zoomoverlay.draw-aoe {
