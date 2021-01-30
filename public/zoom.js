@@ -46,45 +46,52 @@ function setup_socket(socket)
     socket.on('mapfile', add_mapfile)
     socket.on('mapremove', remove_mapfile)
     socket.on('pagetitle', set_pagetitle)
-    socket.on('pages', function(pages) {
-        document.body.className = 'connected'
-        if (!adminonly) {
-            adminonly = true
-            $('.adminonly').show()
-
-            $('#fileupload').on('change','input[type="file"].mapimage', upload_map)
-
-            $('#fileupload').on('input','input.mapnamenew', new_maprow)
-            $('#fileupload').on('change', 'input.active', select_mapfile)
-            $('#fileupload').on('click', '.remove.button.confirm', remove_map)
-            $('#fileupload').on('click', '.remove.button', confirm_remove_map)
-            $('#ini-title').on('click', '.editbutton', edit_characters)
-
-            $('#deletepage').on('click', delete_page)
-
-            $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
-            socket.on('message', function(err) {
-                alert(err)
-            })
-        }
-        var options = []
-        for (p in pages) {
-            options.push('<option data-title="'+pages[p].title+'" value="'+pages[p].id+'">'+
-                pages[p].title+'</option>')
-        }
-        options.sort()
-        options.push('<option value="new">New</option>')
-        $('#pageselect').html(options.join(''))
-        $('#pageselect').val('')
-        var storedpageid = sessionStorage.getItem('currentpageid')
-        if (storedpageid) {
-            socket.emit('selectpage', storedpageid)
-        }
-        if (currentpageid) {
-            $('#pagetitle').attr('placeholder', 'Session title')
-            $('.editonly').show()
-        }
+    socket.on('diskusage', function(diskusage) {
+        $('#diskusage').text(diskusage)
     })
+
+    socket.on('pages', get_pages)
+}
+
+function get_pages(pages)
+{
+    document.body.className = 'connected'
+    if (!adminonly) {
+        adminonly = true
+        $('.adminonly').show()
+
+        $('#fileupload').on('change','input[type="file"].mapimage', upload_map)
+
+        $('#fileupload').on('input','input.mapnamenew', new_maprow)
+        $('#fileupload').on('change', 'input.active', select_mapfile)
+        $('#fileupload').on('click', '.remove.button.confirm', remove_map)
+        $('#fileupload').on('click', '.remove.button', confirm_remove_map)
+        $('#ini-title').on('click', '.editbutton', edit_characters)
+
+        $('#deletepage').on('click', delete_page)
+
+        $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
+        socket.on('message', function(err) {
+            alert(err)
+        })
+    }
+    var options = []
+    for (p in pages) {
+        options.push('<option data-title="'+pages[p].title+'" value="'+pages[p].id+'">'+
+            pages[p].title+'</option>')
+    }
+    options.sort()
+    options.push('<option value="new">New</option>')
+    $('#pageselect').html(options.join(''))
+    $('#pageselect').val('')
+    var storedpageid = sessionStorage.getItem('currentpageid')
+    if (storedpageid) {
+        socket.emit('selectpage', storedpageid)
+    }
+    if (currentpageid) {
+        $('#pagetitle').attr('placeholder', 'Session title')
+        $('.editonly').show()
+    }
 }
 
 function delete_page()

@@ -328,6 +328,18 @@ body.disconnected .noconnection {
   font-size: 80%;
 }
 
+#fileupload {
+    font-size: 16px;
+}
+
+#fileupload caption {
+    text-align: left;
+}
+
+#diskusage {
+    font-size: 14px;
+}
+
 #fileupload div.button {
     border: 1px solid black;
     cursor: pointer;

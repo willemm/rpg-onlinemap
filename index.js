@@ -13,7 +13,17 @@ const maxpages = 10
 let pages = {}
 let currentplayerpage = ''
 let adminsecret = process.env.DUNGEONMASTER_TOKEN
+let maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
+let maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 1024)
 let pageid = 0
+let diskusagebytes = 0
+let diskusage = 'N/A'
+let savetimeout = 0
+let nextsave = 0
+let checktimeout = 0
+let nextcheck = 0
+
+check_disk()
 
 for (const pagefile of fs.readdirSync('./pages')) {
     try {
@@ -37,6 +47,7 @@ io.on('connection', function(socket) {
     socket.on('join', (secret) => {
         console.log('join with token '+secret)
         if (secret == adminsecret) {
+            check_disk()
             admin = true
             console.log(socket.id+'  Admin connection')
             socket.on('createpage', (pageid) => {
@@ -105,11 +116,6 @@ io.on('connection', function(socket) {
             })
             socket.on('mapupload', (upmap, pageid) => {
                 if (!pages[pageid]) { return }
-                if (upmap.data.length > 10000000) {
-                    console.log('mapupload', 'file too large', upmap.data.length)
-                    socket.emit('message', 'file too large: '+upmap.data.length)
-                    return
-                }
                 if (upmap.name.length > 50 || upmap.name.match(/[^A-Za-z0-9._-]/)) {
                     console.log('mapupload', 'illegal filename', upmap.name)
                     socket.emit('message', 'illegal filename: '+upmap.name)
@@ -120,31 +126,76 @@ io.on('connection', function(socket) {
                     socket.emit('message', 'illegal file extension: '+upmap.fileext)
                     return
                 }
+                if (upmap.data.length > maxmapsize) {
+                    console.log('mapupload', 'file too large', upmap.data.length)
+                    socket.emit('message', 'file too large: '+formatBytes(upmap.data.length)+' > '+formatBytes(maxmapsize))
+                    return
+                }
+                if ((diskusagebytes + upmap.data.length) > maxdiskuse) {
+                    console.log('mapupload', 'disk too full', diskusage, upmap.data.length)
+                    socket.emit('message', 'disk too full: '+diskusage+' + '+formatBytes(upmap.data.length) + ' > '+formatBytes(maxdiskuse))
+                    return
+                }
                 let map = {
                     path: pageid+'/'+upmap.name+'.'+upmap.fileext,
                     name: upmap.name
                 }
-                fs.mkdir('./public/maps/'+pageid, { recursive: true }, (err) => {
+                const mapfolder = './public/maps/'+pageid
+                fs.mkdir(mapfolder, { recursive: true }, (err) => {
                     if (err) {
                         console.log('mapupload', 'Mapupload error: ', err)
                         socket.emit('message', 'failed to create folder '+err)
                         return
                     }
-                    const mappath = './public/maps/'+map.path
-                    console.log('mapupload', upmap.name, upmap.data.length)
-                    fs.writeFile(mappath, upmap.data, 'Binary', function(err) {
+                    // Scan for files with the same name (maybe different extension)
+                    fs.readdir(mapfolder, (err, files) => {
                         if (err) {
-                            socket.emit('message', 'Mapupload error: '+err)
-                            console.log('mapupload error', err)
+                            console.log('mapupload', 'Mapupload error: ', err)
+                            socket.emit('message', 'failed to create folder '+err)
                             return
                         }
-                        if (upmap.active) {
-                            pages[pageid].map = map
-                            io.emit('map', pages[pageid].map, pageid)
+                        let unlinkpending = 0
+                        function write_the_file(err) {
+                            if (err) {
+                                console.log('mapupload', 'Mapupload error: ', err)
+                                socket.emit('message', 'failed to create folder '+err)
+                                return
+                            }
+                            unlinkpending -= 1
+                            if (unlinkpending > 0) {
+                                console.log('Not writing yet, waiting for file deletion', unlinkpending)
+                                return
+                            }
+                            const mappath = './public/maps/'+map.path
+                            console.log('Writing map file', upmap.name, upmap.data.length)
+                            fs.writeFile(mappath, upmap.data, 'Binary', function(err) {
+                                if (err) {
+                                    socket.emit('message', 'Mapupload error: '+err)
+                                    console.log('mapupload error', err)
+                                    return
+                                }
+                                if (upmap.active) {
+                                    pages[pageid].map = map
+                                    io.emit('map', pages[pageid].map, pageid)
+                                }
+                                io.emit('mapfile', map, pageid)
+                                console.log('mapupload written', mappath)
+                                save_pages()
+                                check_disk(true)
+                            })
                         }
-                        io.emit('mapfile', map, pageid)
-                        console.log('mapupload written', mappath)
-                        save_pages()
+                        for (const file of files) {
+                            const m = file.match(/^(.*)\.(jpeg|jpg|gif|png)$/i)
+                            if (m && m[1] == map.name) {
+                                unlinkpending += 1
+                                console.log('Removing for upload', mapfolder+'/'+file)
+                                fs.unlink(mapfolder+'/'+file, write_the_file)
+                            }
+                        }
+                        if (unlinkpending == 0) {
+                            unlinkpending = 1
+                            write_the_file()
+                        }
                     })
                 })
             })
@@ -177,6 +228,7 @@ io.on('connection', function(socket) {
                                 console.log('File removed: '+mappath)
                                 io.emit('mapremove', { name: mapname }, pageid)
                                 done = true
+                                check_disk(true)
                             })
                         }
                     }
@@ -282,6 +334,7 @@ io.on('connection', function(socket) {
                       socket.emit('map', pages[currentplayerpage].map, currentplayerpage)
                 }
             }
+            socket.emit('diskusage', diskusage)
         } else {
             let found = null
             for (const p in pages) {
@@ -396,13 +449,89 @@ io.on('connection', function(socket) {
     })
 })
 
-let savetimeout = 0
-let nextsave = 0
-
 function save_page_timeout()
 {
     savetimeout = 0
     save_pages()
+}
+
+function check_disk_timeout()
+{
+    checktimeout = 0
+    check_disk()
+}
+
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+function check_disk(force = false)
+{
+    const now = new Date().getTime()
+    if (force || now > nextcheck) {
+        nextcheck = now + 600000
+        let totfilesize = 0
+        let pending = 1
+        console.log('Checking disk usage')
+        function scan_file(path) {
+            // console.log('scan_file', path, pending)
+            fs.stat(path, (err,stats) => {
+                if (err) {
+                    console.log('Error scanning file "'+path+'"', err)
+                    nextcheck = now + 20000
+                    return
+                }
+                totfilesize += stats.size
+                pending -= 1
+                // console.log('scan_file done', path, pending)
+                if (pending == 0) {
+                    diskusagebytes = totfilesize
+                    diskusage = formatBytes(totfilesize)
+                    console.log('Total size', totfilesize, diskusage)
+                    io.emit('diskusage', diskusage)
+                }
+            })
+        }
+        function scan_dir(path) {
+            // console.log('scan_dir', path, pending)
+            fs.readdir(path, { withFileTypes: true }, (err, files) => {
+                if (err) {
+                    console.log('Error scanning dir "'+path+'"', err)
+                    nextcheck = now + 20000
+                    return
+                } 
+                pending -= 1
+                // console.log('scan_dir processing', path, pending)
+                for (const file of files) {
+                    pending += 1
+                    if (file.isDirectory()) {
+                        scan_dir(path+'/'+file.name)
+                    } else {
+                        scan_file(path+'/'+file.name)
+                    }
+                }
+                // console.log('scan_dir done', path, pending)
+                if (pending == 0) {
+                    diskusagebytes = totfilesize/1024
+                    diskusage = formatBytes(totfilesize)
+                    console.log('Total size', totfilesize, diskusage)
+                    io.emit('diskusage', diskusage)
+                }
+            })
+        }
+        scan_dir('./public')
+    } else {
+        if (checktimeout) { return }
+        checktimeout = setTimeout(check_disk_timeout, 30000)
+    }
 }
 
 function save_pages()
@@ -418,6 +547,7 @@ function save_pages()
                 }
             })
         }
+        check_disk()
     } else {
         if (savetimeout) { return }
         savetimeout = setTimeout(save_page_timeout, 15000)
