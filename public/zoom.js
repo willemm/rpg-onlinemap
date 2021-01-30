@@ -294,7 +294,7 @@ function set_map(map, pageid)
 {
     $('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active').prop('checked', true), ('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active')
     if (pageid == currentpageid) {
-        $('#map img').attr('src', 'maps/'+map.path+'?'+get_uid())
+        $('#map img').attr('src', 'maps/'+map.path)
     }
 }
 
@@ -473,6 +473,9 @@ function add_mapfile(map, pageid)
                           'accept=".jpg,.png,.gif,image/*"></label></td>'+
                           '<td class="removemap"><div class="remove button">X</div></td>'+
                        '</tr>').insertBefore('#fileupload tr.mapuploadnew')
+    }
+    if (map.name == 'Background') {
+        $('body').css({'background-image': 'url("maps/'+map.path+'")'})
     }
 }
 

@@ -22,6 +22,15 @@ let savetimeout = 0
 let nextsave = 0
 let checktimeout = 0
 let nextcheck = 0
+let lastuid = 0
+
+function get_uid()
+{
+    newid = new Date().getTime()
+    if (newid <= lastuid) { newid = lastuid+1 }
+    lastuid = newid
+    return newid.toString(36)
+}
 
 check_disk()
 
@@ -61,7 +70,6 @@ io.on('connection', function(socket) {
                     return
                 }
                 let token = Math.round(Math.pow(36,10)*Math.random()).toString(36)
-                token = token.toString(36)
                 pages[pageid] = {
                     id:         pageid,
                     token:      token,
@@ -137,7 +145,7 @@ io.on('connection', function(socket) {
                     return
                 }
                 let map = {
-                    path: pageid+'/'+upmap.name+'.'+upmap.fileext,
+                    path: pageid+'/'+upmap.name+'-'+get_uid()+'.'+upmap.fileext,
                     name: upmap.name
                 }
                 const mapfolder = './public/maps/'+pageid
@@ -185,7 +193,7 @@ io.on('connection', function(socket) {
                             })
                         }
                         for (const file of files) {
-                            const m = file.match(/^(.*)\.(jpeg|jpg|gif|png)$/i)
+                            const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
                             if (m && m[1] == map.name) {
                                 unlinkpending += 1
                                 console.log('Removing for upload', mapfolder+'/'+file)
@@ -215,7 +223,7 @@ io.on('connection', function(socket) {
                     }
                     let done = false
                     for (const file of files) {
-                        const m = file.match(/^(.*)\.(jpeg|jpg|gif|png)$/i)
+                        const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
                         if (m && m[1] == mapname) {
                             const mappath = './public/maps/'+pageid+'/'+file
                             console.log('Removing mapfile '+mappath)
@@ -249,7 +257,7 @@ io.on('connection', function(socket) {
                         return
                     }
                     for (const file of files) {
-                        const m = file.match(/^(.*)\.(jpeg|jpg|png|gif)$/)
+                        const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
                         if (m) {
                             if (m[1] == map.name) {
                                 pages[pageid].map = {
@@ -294,7 +302,7 @@ io.on('connection', function(socket) {
                         }
                     } else {
                         for (const file of files) {
-                            const m = file.match(/^(.*)\.(gif|jpg|jpeg|png)/i)
+                            const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
                             if (m) {
                                 const mapname = m[1]
                                 const mappath = pageid+'/'+file
@@ -331,7 +339,7 @@ io.on('connection', function(socket) {
             if (currentplayerpage) {
                 socket.emit('page', pages[currentplayerpage], currentplayerpage)
                 if (pages[currentplayerpage].map) {
-                      socket.emit('map', pages[currentplayerpage].map, currentplayerpage)
+                    socket.emit('map', pages[currentplayerpage].map, currentplayerpage)
                 }
             }
             socket.emit('diskusage', diskusage)
@@ -480,6 +488,9 @@ function check_disk(force = false)
         nextcheck = now + 600000
         let totfilesize = 0
         let pending = 1
+        const mu = process.memoryUsage()
+        console.log('Timestamp: '+new Date().toUTCString())
+        console.log('Memory: rss='+formatBytes(mu.rss)+' tot='+formatBytes(mu.heapTotal)+' used='+formatBytes(mu.heapUsed)+' ext='+formatBytes(mu.external))
         console.log('Checking disk usage')
         function scan_file(path) {
             // console.log('scan_file', path, pending)
