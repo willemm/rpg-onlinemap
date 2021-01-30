@@ -222,10 +222,12 @@ io.on('connection', function(socket) {
                 pages[pageid].areas = {}
                 pages[pageid].effects = {}
                 pages[pageid].zoom = {
-                    x: 0,
-                    y: 0,
-                    h: 0,
-                    w: 0
+                    x: 0, y: 0, h: 0, w: 0
+                }
+                if (pages[pageid].initiative) {
+                    pages[pageid].initiative = pages[pageid].initiative.filter(item => item.type.match(/^(pc|empty)$/))
+                    pages[pageid].initiative.forEach(item => item.initiative = null)
+                    io.emit('initiative', pages[pageid].initiative, pageid)
                 }
                 io.emit('zoom', pages[pageid].zoom, pageid)
             })

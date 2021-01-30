@@ -812,7 +812,9 @@ function set_zoom(sp)
 
 function clear_zoom()
 {
-    socket.emit('clearzoom', currentpageid)
+    if (confirm('Clear zoom map?')) {
+        socket.emit('clearzoom', currentpageid)
+    }
 }
 
 function hide_zoom()

@@ -17,36 +17,18 @@
       "type": "pc",
       "text": "Jan (Frances)",
       "id": "kkjr1iax",
-      "initiative": 17
-    },
-    {
-      "type": "npc2",
-      "text": "Goblin",
-      "id": "kkjs3c2o",
-      "initiative": 14
+      "initiative": null
     },
     {
       "type": "pc",
       "text": "Dadmic (Rudi)",
       "id": "kkjr1iay",
-      "initiative": 12
+      "initiative": null
     },
     {
       "type": "pc",
       "text": "Moth (Willem)",
       "id": "kkjr1iaz",
-      "initiative": 10
-    },
-    {
-      "type": "npc1",
-      "text": "Guard",
-      "id": "kkjs3c2p",
-      "initiative": 9
-    },
-    {
-      "type": "xx",
-      "text": "",
-      "id": "kkjr1ib0",
       "initiative": null
     },
     {
