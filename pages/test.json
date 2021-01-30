@@ -11,6 +11,14 @@
       "player": true,
       "imx": 0.4662602460993988,
       "imy": 0.3185888529427852
+    },
+    "kkjps38d": {
+      "id": "kkjps38d",
+      "text": "M",
+      "cls": "marker char_Moth__Willem_ pc pc",
+      "player": true,
+      "imx": 0.4416060424512154,
+      "imy": 0.6463431124984844
     }
   },
   "areas": {},
@@ -56,16 +64,8 @@
       "initiative": null
     }
   ],
-  "maps": {
-    "Lame": {
-      "name": "Lame",
-      "path": "test/Lame.jpg",
-      "active": false
-    },
-    "Overworld": {
-      "name": "Overworld",
-      "path": "test/Overworld.png",
-      "active": true
-    }
+  "map": {
+    "path": "test/Overworld.png",
+    "name": "Overworld"
   }
 }

@@ -15,30 +15,17 @@ let currentplayerpage = ''
 let adminsecret = process.env.DUNGEONMASTER_TOKEN
 let pageid = 0
 
-for (const dir of fs.readdirSync('./public/maps/', { withFileTypes: true })) {
-    if (dir.isDirectory()) {
-        try {
-            let newpage = require('./pages/'+dir.name+'.json')
-            newpage.id = dir.name
-            newpage.maps = {}
-            for (const file of fs.readdirSync('./public/maps/'+dir.name)) {
-                const m = file.match(/^(.*)\.(gif|jpg|jpeg|png)/i)
-                if (m) {
-                    const mapname = m[1]
-                    newpage.maps[mapname] = {
-                        name: mapname,
-                        path: dir.name+'/'+file,
-                        active: false
-                    }
-                }
-            }
-            pages[dir.name] = newpage
-            if (newpage.active) {
-                currentplayerpage = dir.name
-            }
-        } catch (e) {
-            console.log('Error reading pagefile from '+dir.name)
+for (const pagefile of fs.readdirSync('./pages')) {
+    try {
+        const m = pagefile.match(/^(.*)\.json$/)
+        if (m) {
+            const pageid = m[1]
+            let newpage = require('./pages/'+pagefile)
+            newpage.id = pageid
+            pages[pageid] = newpage
         }
+    } catch (e) {
+        console.log('Error reading pagefile from '+dir.name)
     }
 }
 
@@ -55,7 +42,7 @@ io.on('connection', function(socket) {
             socket.on('createpage', (pageid) => {
                 if (Object.keys(pages).length >= maxpages) {
                     console.log('Create page error: we already have '+maxpages+' pages')
-                    socket.emit('error', 'Can\'t create page: Too many pages')
+                    socket.emit('message', 'Can\'t create page: Too many pages')
                     return
                 }
                 let token = Math.round(Math.pow(36,10)*Math.random()).toString(36)
@@ -68,7 +55,8 @@ io.on('connection', function(socket) {
                     markers:    {},
                     areas:      {},
                     effects:    {},
-                    initiative: []
+                    initiative: [],
+                    map:        null
                 }
                 socket.emit('pages', pages)
                 socket.emit('page', pages[pageid], pageid)
@@ -97,77 +85,105 @@ io.on('connection', function(socket) {
                 }
                 save_pages()
             })
-            socket.on('mapupload', (map, pageid) => {
+            socket.on('mapupload', (upmap, pageid) => {
                 if (!pages[pageid]) { return }
-                if (map.data.length > 10000000) {
-                    console.log('mapupload', 'file too large', map.data.length)
+                if (upmap.data.length > 10000000) {
+                    console.log('mapupload', 'file too large', upmap.data.length)
                     return
                 }
-                if (map.name.length > 50 || map.name.match(/[^A-Za-z0-9._-]/)) {
-                    console.log('mapupload', 'illegal filename', map.name)
+                if (upmap.name.length > 50 || upmap.name.match(/[^A-Za-z0-9._-]/)) {
+                    console.log('mapupload', 'illegal filename', upmap.name)
                     return
                 }
-                if (!map.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
-                    console.log('mapupload', 'illegal file extension', map.name)
+                if (!upmap.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
+                    console.log('mapupload', 'illegal file extension', upmap.name)
                     return
                 }
-                map.path = pageid+'/'+map.name+'.'+map.fileext
+                let map = {
+                    path: pageid+'/'+upmap.name+'.'+upmap.fileext,
+                    name: upmap.name
+                }
                 const mappath = './public/maps/'+map.path
-                console.log('mapupload', map.name, map.data.length)
-                fs.writeFile(mappath, map.data, 'Binary', function(err) {
+                console.log('mapupload', upmap.name, upmap.data.length)
+                fs.writeFile(mappath, upmap.data, 'Binary', function(err) {
                     if (err) {
+                        socket.emit('message', 'Mapupload error: '+err)
                         console.log('mapupload error', err)
                         return
                     }
-                    pages[pageid].maps[map.name] = {
-                        name: map.name,
-                        path: map.path,
-                        active: map.active
+                    if (upmap.active) {
+                        pages[pageid].map = map
+                        io.emit('map', pages[pageid].map, pageid)
                     }
-                    if (map.active) {
-                        for (pagemap in pages[pageid].maps) {
-                            pages[pageid].maps[pagemap].active = false
-                        }
-                        pages[pageid].maps[map.name].active = true
-                        io.emit('map', pages[pageid].maps[map.name], pageid)
-                    }
-                    io.emit('mapfile', pages[pageid].maps[map.name], pageid)
+                    io.emit('mapfile', map, pageid)
                     console.log('mapupload written', mappath)
                     save_pages()
                 })
             })
             socket.on('mapremove', (mapname, pageid) => {
-                if (!pages[pageid] || !pages[pageid].maps[mapname]) {
+                if (!pages[pageid]) {
                     socket.emit('mapremove', {
                         name: mapname,
                         error: 'Not found'
                     }, pageid)
                     return
                 }
-                const mappath = './public/maps/'+pages[pageid].maps[mapname].path
-                console.log('Removing mapfile '+mappath)
-                fs.unlink(mappath, function(err) {
+                fs.readdir('./public/maps/'+pageid, (err, files) => {
                     if (err) {
-                        console.log('mapremove error', err)
+                        console.log('error reading map dir', err)
+                        socket.emit('message', 'Error reading maps: '+err)
                         return
                     }
-                    console.log('File removed: '+mappath)
-                    let deletedmap = pages[pageid].maps[mapname]
-                    delete pages[pageid].maps[mapname]
-                    io.emit('mapremove', deletedmap, pageid)
+                    let done = false
+                    for (const file of files) {
+                        const m = file.match(/^(.*)\.(jpeg|jpg|gif|png)$/i)
+                        if (m && m[1] == mapname) {
+                            const mappath = './public/maps/'+pageid+'/'+file
+                            console.log('Removing mapfile '+mappath)
+                            fs.unlink(mappath, function(err) {
+                                if (err) {
+                                    console.log('mapremove error', err)
+                                    socket.emit('message', 'Error deleting map: '+err)
+                                    return
+                                }
+                                console.log('File removed: '+mappath)
+                                io.emit('mapremove', { name: mapname }, pageid)
+                                done = true
+                            })
+                        }
+                    }
                     save_pages()
+                    if (!done) {
+                        socket.emit('mapremove', {
+                            name: mapname,
+                            error: 'Not found'
+                        }, pageid)
+                    }
                 })
             })
             socket.on('map', (map, pageid) => {
-                if (!pages[pageid] || !pages[pageid].maps[map.name]) {
-                    return
-                }
-                for (pagemap in pages[pageid].maps) {
-                    pages[pageid].maps[pagemap].active = false
-                }
-                pages[pageid].maps[map.name].active = true
-                io.emit('map', pages[pageid].maps[map.name], pageid)
-                save_pages()
+                if (!pages[pageid]) { return }
+                fs.readdir('./public/maps/'+pageid, (err, files) => {
+                    if (err) {
+                        socket.emit('message', 'error reading maps '+err)
+                        return
+                    }
+                    for (const file of files) {
+                        const m = file.match(/^(.*)\.(jpeg|jpg|png|gif)$/)
+                        if (m) {
+                            if (m[1] == map.name) {
+                                pages[pageid].map = {
+                                    name: map.name,
+                                    path: pageid+'/'+file
+                                }
+                                io.emit('map', pages[pageid].map, pageid)
+                                return
+                            }
+                        }
+                    }
+                    socket.emit('message', 'map '+map.name+' not found')
+                    save_pages()
+                })
             })
             socket.on('initiative', (initiative, pageid) => {
                 if (!pages[pageid]) { return }
@@ -185,14 +201,34 @@ io.on('connection', function(socket) {
                     io.emit('initiative', order, pageid)
                 }
             })
+            socket.on('selectpage', (pageid) => {
+                if (!pages[pageid]) {
+                    return { error: 'Page '+pageid+' not found' }
+                }
+                socket.emit('page', pages[pageid], pageid)
+                fs.readdir('./public/maps/'+pageid, null, (err, files) => {
+                    if (err) {
+                        console.log('readmaps error', err)
+                    } else {
+                        for (const file of files) {
+                            const m = file.match(/^(.*)\.(gif|jpg|jpeg|png)/i)
+                            if (m) {
+                                const mapname = m[1]
+                                const mappath = pageid+'/'+file
+                                socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
+                            }
+                        }
+                        if (pages[pageid].map) {
+                            socket.emit('map', pages[pageid].map, pageid)
+                        }
+                    }
+                })
+            })
             socket.emit('pages', pages)
             if (currentplayerpage) {
                 socket.emit('page', pages[currentplayerpage], currentplayerpage)
-                for (const key in pages[currentplayerpage].maps) {
-                    const map = pages[currentplayerpage].maps[key]
-                    if (map.active) {
-                      socket.emit('map', map, currentplayerpage)
-                    }
+                if (pages[currentplayerpage].map) {
+                      socket.emit('map', pages[currentplayerpage].map, currentplayerpage)
                 }
             }
         } else {
@@ -211,14 +247,12 @@ io.on('connection', function(socket) {
                 return
             }
             socket.emit('page', pages[found], found)
-            for (const key in pages[found].maps) {
-                const map = pages[found].maps[key]
-                if (map.active) {
-                  socket.emit('map', map, found)
-                }
+            if (pages[found].map) {
+                  socket.emit('map', pages[found].map, currentplayerpage)
             }
         }
         socket.on('marker', (marker, pageid) => {
+            console.log('marker', marker, pageid)
             if (!pages[pageid]) { return }
             if (!pages[pageid].markers[marker.id]) {
                 if (!admin) { return }

@@ -1,7 +1,7 @@
 $(load)
 
 var dragging
-var currentpageid = 'test'
+var currentpageid
 var zoompos = {}
 var adminonly = false
 
@@ -34,11 +34,7 @@ function setup_socket(socket)
             set_zoom(zoom)
         }
     })
-    socket.on('map', function(map, pageid) {
-        if (pageid == currentpageid) {
-            $('#map img').attr('src', 'maps/'+map.path+'?'+get_uid())
-        }
-    })
+    socket.on('map', set_map)
     socket.on('mapfile', add_mapfile)
     socket.on('mapremove', remove_mapfile)
     socket.on('pages', function(pages) {
@@ -56,6 +52,12 @@ function setup_socket(socket)
             $('#ini-title').on('click', '.editbutton', edit_characters)
 
             $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
+            socket.on('message', function(err) {
+                alert(err)
+            })
+        }
+        if (!currentpageid) {
+            socket.emit('selectpage', 'test')
         }
     })
 }
@@ -151,7 +153,7 @@ function set_effect(effect, pageid)
     var effecttr = $('#area-effects .aoe[data-id="'+effect.id+'"]')
     if (!effecttr.length) {
         effecttr = $(
-            '<tr class="aoe" data-color="'+effect.color+'" data-page="'+effect.page+'" data-id="'+effect.id+'">'+
+            '<tr class="aoe" data-color="'+effect.color+'" data-page="'+pageid+'" data-id="'+effect.id+'">'+
             '<td class="aoe-text" style="background-color:'+effect.color+';">'+
             '<input type="text" placeholder="Area of Effect"></td>'+
             '<td class="aoe-close">X</td></tr>').prependTo('#area-effects')
@@ -167,7 +169,7 @@ function set_area(area, pageid)
     if (!$('#zoompopup').is(':visible')) { return }
     var areadiv = $('#zoomoverlay .aoe[data-id="'+area.id+'"]')
     if (!areadiv.length) {
-        areadiv = $('<div class="'+area.cls+'" style="left:'+x+'px; top:'+y+'px; width:'+w+'px; height:'+h+'px; background-color:'+area.color+';" data-color="'+area.color+'" data-id="'+area.id+'" data-page="'+area.page+'"></div>').appendTo('#zoomoverlay')
+        areadiv = $('<div class="'+area.cls+'" style="left:'+x+'px; top:'+y+'px; width:'+w+'px; height:'+h+'px; background-color:'+area.color+';" data-color="'+area.color+'" data-id="'+area.id+'" data-page="'+pageid+'"></div>').appendTo('#zoomoverlay')
     }
     var zof = $('#zoomoverlay').offset()
     var x = area.imx * zoompos.w + zoompos.x - zof.left
@@ -183,7 +185,7 @@ function set_marker(marker, pageid)
     if (!$('#zoompopup').is(':visible')) { return }
     var markerdiv = $('#markers .marker[data-id="'+marker.id+'"]')
     if (!markerdiv.length) {
-        markerdiv = $('<div data-page="'+marker.page+'" data-id="'+marker.id+'" class="'+marker.cls+'">'+marker.text+'</div>').appendTo('#markers')
+        markerdiv = $('<div data-page="'+pageid+'" data-id="'+marker.id+'" class="'+marker.cls+'">'+marker.text+'</div>').appendTo('#markers')
     }
     var x = marker.imx * zoompos.w + zoompos.x - markerdiv.width()/2
     var y = marker.imy * zoompos.h + zoompos.y - markerdiv.height()/2
@@ -210,11 +212,6 @@ function show_page(page)
             set_effect(page.effects[ar], page.id)
         }
     }
-    if (page.maps) {
-        for (mf in page.maps) {
-            add_mapfile(page.maps[mf], page.id)
-        }
-    }
     if (page.initiative) {
         set_initiative(page.initiative, page.id)
     }
@@ -222,6 +219,17 @@ function show_page(page)
         var playerlink = window.location.origin+'#'+page.token
         $('#playerlink a').text(playerlink)
         $('#playerlink a').attr('href', playerlink)
+    }
+    if (page.map) {
+        set_map(page.map, page.id)
+    }
+}
+
+function set_map(map, pageid)
+{
+    $('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active').prop('checked', true), ('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active')
+    if (pageid == currentpageid) {
+        $('#map img').attr('src', 'maps/'+map.path+'?'+get_uid())
     }
 }
 
