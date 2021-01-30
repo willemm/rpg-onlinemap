@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>de Crebba - op naar Haven!</title>
+    <title>RPG Map</title>
 	<meta name="robots" content="noindex, nofollow">
 	<link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.0/jquery.min.js"></script>
@@ -54,14 +54,19 @@
 	made by Diona en Willem
 	</center></div>
 	
-<div id="playerlink" class="adminonly">Player link: <a></a></div>
-<table id="fileupload" class="adminonly">
+<div class="pagetitle adminonly">
+    <input type="text" id="pagetitle" placeholder="Select Session">
+    <select id="pageselect"></select>
+</div>
+<div id="playerlink" class="editonly">Player link: <a></a></div>
+<table id="fileupload" class="editonly">
   <caption>Map images</caption>
   <tr class="mapupload mapuploadnew" data-name="">
     <td><input class="active" type="radio" name="mapactive"></td>
     <td class="mapname"><input class="mapnamenew" type="text" placeholder="New Map Name"></td>
   </tr>
 </table>
+<div id="deletepage" class="editonly button">! Remove this session !</div>
 </div>
 
 <div id="zoompopup">

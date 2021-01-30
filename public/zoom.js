@@ -21,6 +21,14 @@ function setup_socket(socket)
     socket.on('page', function(page, pageid) {
         document.body.className = 'connected'
         currentpageid = pageid
+        sessionStorage.setItem('currentpageid', pageid)
+        if (pageid) {
+            $('#pagetitle').attr('placeholder', 'Session title')
+            $('.editonly').show()
+        } else {
+            $('#pagetitle').attr('placeholder', 'Select session')
+            $('.editonly').hide()
+        }
         show_page(page)
     })
     socket.on('initiative', set_initiative)
@@ -37,6 +45,7 @@ function setup_socket(socket)
     socket.on('map', set_map)
     socket.on('mapfile', add_mapfile)
     socket.on('mapremove', remove_mapfile)
+    socket.on('pagetitle', set_pagetitle)
     socket.on('pages', function(pages) {
         document.body.className = 'connected'
         if (!adminonly) {
@@ -51,15 +60,37 @@ function setup_socket(socket)
             $('#fileupload').on('click', '.remove.button', confirm_remove_map)
             $('#ini-title').on('click', '.editbutton', edit_characters)
 
+            $('#deletepage').on('click', delete_page)
+
             $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
             socket.on('message', function(err) {
                 alert(err)
             })
         }
-        if (!currentpageid) {
-            socket.emit('selectpage', 'test')
+        var options = []
+        for (p in pages) {
+            options.push('<option data-title="'+pages[p].title+'" value="'+pages[p].id+'">'+
+                pages[p].title+'</option>')
+        }
+        options.sort()
+        options.push('<option value="new">New</option>')
+        $('#pageselect').html(options.join(''))
+        $('#pageselect').val('')
+        var storedpageid = sessionStorage.getItem('currentpageid')
+        if (storedpageid) {
+            socket.emit('selectpage', storedpageid)
         }
     })
+}
+
+function delete_page()
+{
+    var pageid = currentpageid
+    if (pageid) {
+        if (confirm('Delete the page '+document.title+" ?\nThis is permanent!")) {
+            socket.emit('deletepage', pageid)
+        }
+    }
 }
 
 function edit_characters()
@@ -197,10 +228,26 @@ function set_marker(marker, pageid)
     markerdiv.text(marker.text)
 }
 
+function set_pagetitle(pagetitle, pageid) {
+    if (pageid == currentpageid) {
+        document.title = pagetitle || 'New session'
+        $('#pagetitle').attr('data-page', pageid)
+        $('#pagetitle').val(pagetitle||'')
+        $('#pageselect option[value="'+pageid+'"]').text(pagetitle || '')
+        if (!pagetitle && adminonly) {
+            $('#pagetitle').focus()
+        }
+    }
+}
+
 function show_page(page)
 {
+    $('#fileupload tr.mapupload:not(.mapuploadnew)').remove()
+    set_pagetitle(page.title || '', page.id)
     if (page.zoom) {
         set_zoom(page.zoom)
+    } else {
+        hide_zoom()
     }
     if (page.markers) {
         for (mr in page.markers) {
@@ -227,6 +274,8 @@ function show_page(page)
     }
     if (page.map) {
         set_map(page.map, page.id)
+    } else {
+        $('#map img').attr('src', 'Welcome.png')
     }
 }
 
@@ -257,6 +306,25 @@ function load() {
     $('#characters').on('input','input.initiative', check_ordering)
     $('#characters').on('input','td.newrow input', add_character_row)
     $('#characters').on('input','td.chartype input', set_character_class)
+    $('#pagetitle').on('change', set_page_title)
+    $('#pageselect').on('change', select_page)
+
+    $('#fileupload input.mapnamenew').val('')
+}
+
+function select_page(e)
+{
+    var pageid = $(this).val()
+    if (pageid == 'new') {
+        socket.emit('createpage', get_uid())
+    } else {
+        socket.emit('selectpage', pageid)
+    }
+}
+
+function set_page_title(e)
+{
+    socket.emit('pagetitle', $(this).val(), currentpageid)
 }
 
 function set_character_class(e)
@@ -372,7 +440,8 @@ function new_maprow(e)
             '<input name="mapimage" type="file" class="mapimage" value="Map" '+
             'accept=".jpg,.png,.gif,image/*"></label></td>')
         $(this).removeClass('mapnamenew').addClass('mapname')
-        $(this).closest('tbody').append('<tr class="mapupload">'+
+        tr.removeClass('mapuploadnew')
+        $(this).closest('tbody').append('<tr class="mapupload mapuploadnew">'+
             '<td><input class="active" type="radio" name="mapactive"></td>'+
             '<td class="mapname"><input class="mapnamenew" type="text" placeholder="New Map Name"></td>'+
             '</tr>')
@@ -819,12 +888,6 @@ function clear_zoom()
 
 function hide_zoom()
 {
-    /*
-    eraseData('mapzoom')
-    eraseData('mapmarkers')
-    eraseData('mapareas')
-    eraseData('mapeffects')
-    */
     if ($('#zoompopup').is(':visible')) {
         $('#selector').hide()
         $('#zoompopup').hide()

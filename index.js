@@ -9,7 +9,7 @@ http.listen(80, function() {
     console.log('Starting server on port 80')
 })
 
-const maxpages = 5
+const maxpages = 10
 let pages = {}
 let currentplayerpage = ''
 let adminsecret = process.env.DUNGEONMASTER_TOKEN
@@ -40,6 +40,10 @@ io.on('connection', function(socket) {
             admin = true
             console.log(socket.id+'  Admin connection')
             socket.on('createpage', (pageid) => {
+                if (pages[pageid]) {
+                    socket.emit('message', 'Page "'+pageid+'" already exists')
+                    return
+                }
                 if (Object.keys(pages).length >= maxpages) {
                     console.log('Create page error: we already have '+maxpages+' pages')
                     socket.emit('message', 'Can\'t create page: Too many pages')
@@ -58,9 +62,32 @@ io.on('connection', function(socket) {
                     initiative: [],
                     map:        null
                 }
-                socket.emit('pages', pages)
                 socket.emit('page', pages[pageid], pageid)
+                socket.emit('pages', pages)
                 save_pages()
+            })
+            socket.on('deletepage', (pageid) => {
+                if (!pages[pageid]) { return }
+                console.log('Removing page '+pageid+' ('+pages[pageid].title+')')
+                console.log('Removing folder ./public/maps/'+pageid)
+                fs.rmdir('./public/maps/'+pageid, { recursive: true }, (err) => {
+                    if (err) {
+                        console.log('Failed to remove ./public/maps/'+pageid, err)
+                        socket.emit('message', 'Failed to remove ./public/maps/'+pageid+': '+err)
+                        return
+                    }
+                    console.log('Removing file ./pages/'+pageid+'.json')
+                    fs.unlink('./pages/'+pageid+'.json', (err) => {
+                        if (err) {
+                            console.log('Failed to remove ./pages/'+pageid+'.json')
+                            socket.emit('message', 'Failed to remove page-file: '+err)
+                            return
+                        }
+                        delete pages[pageid]
+                        socket.emit('page', {}, null)
+                        socket.emit('pages', pages)
+                    })
+                })
             })
             socket.on('zoom', (zoom, pageid) => {
                 if (!pages[pageid]) { return }
@@ -80,35 +107,45 @@ io.on('connection', function(socket) {
                 if (!pages[pageid]) { return }
                 if (upmap.data.length > 10000000) {
                     console.log('mapupload', 'file too large', upmap.data.length)
+                    socket.emit('message', 'file too large: '+upmap.data.length)
                     return
                 }
                 if (upmap.name.length > 50 || upmap.name.match(/[^A-Za-z0-9._-]/)) {
                     console.log('mapupload', 'illegal filename', upmap.name)
+                    socket.emit('message', 'illegal filename: '+upmap.name)
                     return
                 }
                 if (!upmap.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
-                    console.log('mapupload', 'illegal file extension', upmap.name)
+                    console.log('mapupload', 'illegal file extension', upmap.fileext)
+                    socket.emit('message', 'illegal file extension: '+upmap.fileext)
                     return
                 }
                 let map = {
                     path: pageid+'/'+upmap.name+'.'+upmap.fileext,
                     name: upmap.name
                 }
-                const mappath = './public/maps/'+map.path
-                console.log('mapupload', upmap.name, upmap.data.length)
-                fs.writeFile(mappath, upmap.data, 'Binary', function(err) {
+                fs.mkdir('./public/maps/'+pageid, { recursive: true }, (err) => {
                     if (err) {
-                        socket.emit('message', 'Mapupload error: '+err)
-                        console.log('mapupload error', err)
+                        console.log('mapupload', 'Mapupload error: ', err)
+                        socket.emit('message', 'failed to create folder '+err)
                         return
                     }
-                    if (upmap.active) {
-                        pages[pageid].map = map
-                        io.emit('map', pages[pageid].map, pageid)
-                    }
-                    io.emit('mapfile', map, pageid)
-                    console.log('mapupload written', mappath)
-                    save_pages()
+                    const mappath = './public/maps/'+map.path
+                    console.log('mapupload', upmap.name, upmap.data.length)
+                    fs.writeFile(mappath, upmap.data, 'Binary', function(err) {
+                        if (err) {
+                            socket.emit('message', 'Mapupload error: '+err)
+                            console.log('mapupload error', err)
+                            return
+                        }
+                        if (upmap.active) {
+                            pages[pageid].map = map
+                            io.emit('map', pages[pageid].map, pageid)
+                        }
+                        io.emit('mapfile', map, pageid)
+                        console.log('mapupload written', mappath)
+                        save_pages()
+                    })
                 })
             })
             socket.on('mapremove', (mapname, pageid) => {
@@ -200,7 +237,9 @@ io.on('connection', function(socket) {
                 socket.emit('page', pages[pageid], pageid)
                 fs.readdir('./public/maps/'+pageid, null, (err, files) => {
                     if (err) {
-                        console.log('readmaps error', err)
+                        if (err.code != 'ENOENT') {
+                            console.log('readmaps error', err)
+                        }
                     } else {
                         for (const file of files) {
                             const m = file.match(/^(.*)\.(gif|jpg|jpeg|png)/i)
@@ -230,6 +269,11 @@ io.on('connection', function(socket) {
                     io.emit('initiative', pages[pageid].initiative, pageid)
                 }
                 io.emit('zoom', pages[pageid].zoom, pageid)
+            })
+            socket.on('pagetitle', (pagetitle, pageid) => {
+                if (!pages[pageid]) { return }
+                pages[pageid].title = pagetitle
+                io.emit('pagetitle', pagetitle, pageid)
             })
             socket.emit('pages', pages)
             if (currentplayerpage) {

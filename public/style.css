@@ -274,7 +274,7 @@ td.aoe-close {
     z-index: 60;
 }
 
-.adminonly {
+.adminonly, .editonly {
     display: none;
 }
 
@@ -348,4 +348,27 @@ body.disconnected .noconnection {
 #playerlink {
     margin: 5px;
     font-size: 12px;
+}
+
+#pagetitle {
+    width: 250px;
+}
+#pageselect {
+    width: 1.4em;
+    color: transparent;
+    padding: 2px
+}
+#pageselect option {
+    color: black;
+}
+#deletepage {
+    margin-top: 40px;
+    color: #c00; 
+    padding: 4px;
+    font-size: 12px;
+    border: 1px solid #800;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 150px;
+    text-align: center;
 }
