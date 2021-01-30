@@ -75,6 +75,7 @@ function edit_characters()
                     iniorder.push({
                         text: name.val(),
                         type: cls,
+                        id: tr.attr('data-id') || get_uid(),
                         initiative: parseInt(tr.attr('data-initiative'))
                     })
                 }
@@ -123,7 +124,7 @@ var lastuid = 0
 function get_uid()
 {
     newid = new Date().getTime()
-    if (newid < lastuid) { newid = lastuid+1 }
+    if (newid <= lastuid) { newid = lastuid+1 }
     lastuid = newid
     return newid.toString(36)
 }
@@ -135,7 +136,8 @@ function set_initiative(initiative, pageid)
         var html = ['<tbody>']
         for (var i = 0; i < initiative.length; i++) {
             var item = initiative[i]
-            html.push('<tr data-initiative="'+(item.initiative||'')+'" class="',item.type,
+            html.push('<tr data-initiative="'+(item.initiative||'')+
+                '" data-id="'+(item.id||'')+'" class="',item.type,
                 '"><td class="initiative">',(item.initiative||''),
                 '</td><td class="name">',item.text,'</td></tr>')
         }
@@ -185,7 +187,9 @@ function set_marker(marker, pageid)
     if (!$('#zoompopup').is(':visible')) { return }
     var markerdiv = $('#markers .marker[data-id="'+marker.id+'"]')
     if (!markerdiv.length) {
-        markerdiv = $('<div data-page="'+pageid+'" data-id="'+marker.id+'" class="'+marker.cls+'">'+marker.text+'</div>').appendTo('#markers')
+        markerdiv = $('<div data-page="'+pageid+'" data-id="'+marker.id+
+            '" data-charid="'+marker.charid+'" class="'+marker.cls+'">'+
+            marker.text+'</div>').appendTo('#markers')
     }
     var x = marker.imx * zoompos.w + zoompos.x - markerdiv.width()/2
     var y = marker.imy * zoompos.h + zoompos.y - markerdiv.height()/2
@@ -236,6 +240,7 @@ function set_map(map, pageid)
 function load() {
     $('#map img').on('mousedown', select_map)
     $('#zoomclose').click(hide_zoom)
+    $('#zoomclear').click(clear_zoom)
     $('#zoomoverlay').on('mousedown', select_aoe)
     $('#characters').on('mousedown', function(e) { if (e.which == 1) return false })
     $('#characters').on('mousedown', 'tr', start_marker)
@@ -638,17 +643,15 @@ function start_marker(e)
     var ch = $(this)
     var mid = ch.find('td:nth-child(2)').text().trim()
     var cls = ['marker']
+    var charid = ch.attr('data-id')
 
-    cls.push('char_'+mid.replace(/[^A-Za-z0-9]/g,'_'))
-    if (ch.hasClass('pc')) {
-        cls.push('pc')
-    } else {
-        cls.push('npc')
+    if (!ch.hasClass('pc')) {
         multi = true
     }
     mid = mid[0]
     if (mid) {
-        var marker = $('#markers .'+cls.join('.'))
+        var markerid = get_uid()
+        var marker = $('#markers div[data-charid="'+charid+'"]')
         if (marker.length) {
             if (multi) {
                 if (marker.length == 1) {
@@ -656,11 +659,13 @@ function start_marker(e)
                 }
                 mid = marker.length + 1
             } else {
+                markerid = marker.attr('data-id')
                 marker.remove()
             }
         }
         cls.push(ch.attr('class'))
-        marker = $('<div data-page="'+currentpageid+'" data-id="'+get_uid()+'" class="'+cls.join(' ')+'">'+mid+'</div>').appendTo('#markers')
+        marker = $('<div data-page="'+currentpageid+'" data-charid="'+charid+
+            '" data-id="'+markerid+'" class="'+cls.join(' ')+'">'+mid+'</div>').appendTo('#markers')
         drag_marker.apply(marker, [e])
     }
     return false
@@ -684,6 +689,7 @@ function drag_marker(e)
         if (nextmovesend < now) {
             socket.emit('marker', {
                 id:     marker.attr('data-id'),
+                charid: marker.attr('data-charid'),
                 imx:    imx,
                 imy:    imy,
                 text:   marker.text(),
@@ -781,6 +787,7 @@ function set_zoom(sp)
     $('#zoom').html('<img src="'+sp.src+'">')
     $('#zoomoverlay').css({width: zoomw+'px', height: zoomh+'px', left: zoomx+'px', top: zoomy+'px'})
     $('#zoomclose').css({right: (zoomx-40)+'px', top: zoomy+'px'})
+    $('#zoomclear').css({right: (zoomx-40)+'px', top: (zoomy+zoomh-40)+'px'})
     var iw = sp.imw * scale
     var ih = sp.imh * scale
     var ix = -sp.x * scale
@@ -796,6 +803,11 @@ function set_zoom(sp)
         h: ih
     }
     return false
+}
+
+function clear_zoom()
+{
+    socket.emit('clearzoom', currentpageid)
 }
 
 function hide_zoom()

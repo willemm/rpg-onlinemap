@@ -144,6 +144,19 @@ tr.npc5 {
     cursor: pointer;
 }
 
+#zoomclear {
+    position: absolute;
+    top: 40px;
+    right: 0px;
+    box-shadow: 0 0 5px 5px #444;
+    z-index: 20;
+    width: 40px;
+    height: 40px;
+    font-size: 40px;
+    background-color: #ccc;
+    cursor: pointer;
+}
+
 #markers .marker {
     position: absolute;
     z-index: 30;

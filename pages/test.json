@@ -3,69 +3,58 @@
   "token": "wzghdtgbej",
   "title": "test",
   "active": true,
-  "markers": {
-    "kkjnfda3": {
-      "id": "kkjnfda3",
-      "text": "J",
-      "cls": "marker char_Jan__Frances_ pc pc",
-      "player": true,
-      "imx": 0.4662602460993988,
-      "imy": 0.3185888529427852
-    },
-    "kkjps38d": {
-      "id": "kkjps38d",
-      "text": "M",
-      "cls": "marker char_Moth__Willem_ pc pc",
-      "player": true,
-      "imx": 0.4416060424512154,
-      "imy": 0.6463431124984844
-    }
-  },
+  "markers": {},
   "areas": {},
   "effects": {},
   "zoom": {
-    "src": "maps/test/Lame.jpg?kkjns6dd",
-    "imw": 920,
-    "imh": 690,
-    "x": 368,
-    "y": 381,
-    "w": 173,
-    "h": 130
+    "src": "maps/test/Lame.jpg?kkjrypnt",
+    "imw": 1121.33,
+    "imh": 841,
+    "x": 366,
+    "y": 84,
+    "w": 409,
+    "h": 352
   },
   "initiative": [
     {
       "type": "pc",
       "text": "Jan (Frances)",
+      "id": "kkjr1iax",
       "initiative": 17
     },
     {
       "type": "pc",
       "text": "Dadmic (Rudi)",
+      "id": "kkjr1iay",
       "initiative": 12
     },
     {
       "type": "pc",
       "text": "Moth (Willem)",
+      "id": "kkjr1iaz",
       "initiative": 10
     },
     {
       "type": "xx",
       "text": "",
+      "id": "kkjr1ib0",
       "initiative": null
     },
     {
       "type": "pc",
       "text": "Roos (Emma)",
+      "id": "kkjr1ib1",
       "initiative": null
     },
     {
       "type": "pc",
       "text": "Boph (Jasper)",
+      "id": "kkjr1ib2",
       "initiative": null
     }
   ],
   "map": {
-    "path": "test/Overworld.png",
-    "name": "Overworld"
+    "name": "Lame",
+    "path": "test/Lame.jpg"
   }
 }

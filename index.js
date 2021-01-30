@@ -194,6 +194,7 @@ io.on('connection', function(socket) {
                         order.push({
                             type:       o.type,
                             text:       o.text,
+                            id:         o.id,
                             initiative: o.initiative
                         })
                     }
@@ -224,6 +225,19 @@ io.on('connection', function(socket) {
                     }
                 })
             })
+            socket.on('clearzoom', (pageid) => {
+                if (!pages[pageid]) { return }
+                pages[pageid].markers = {}
+                pages[pageid].areas = {}
+                pages[pageid].effects = {}
+                pages[pageid].zoom = {
+                    x: 0,
+                    y: 0,
+                    h: 0,
+                    w: 0
+                }
+                io.emit('zoom', pages[pageid].zoom, pageid)
+            })
             socket.emit('pages', pages)
             if (currentplayerpage) {
                 socket.emit('page', pages[currentplayerpage], currentplayerpage)
@@ -252,12 +266,12 @@ io.on('connection', function(socket) {
             }
         }
         socket.on('marker', (marker, pageid) => {
-            console.log('marker', marker, pageid)
             if (!pages[pageid]) { return }
             if (!pages[pageid].markers[marker.id]) {
                 if (!admin) { return }
                 pages[pageid].markers[marker.id] = {
                     id:     marker.id,
+                    charid: marker.charid,
                     text:   marker.text,
                     cls:    marker.cls,
                     player: marker.player
