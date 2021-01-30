@@ -476,9 +476,7 @@ function add_mapfile(map, pageid)
                            '</tr>').insertBefore('#fileupload tr.mapuploadnew')
         }
     }
-    console.log(map.name)
     if (map.name.match(/^[A-Za-z0-9_-]+$/)) {
-        console.log('OK', '.backgrondimage-'+map.name)
         $('.backgroundimage-'+map.name).css({'background-image': 'url("maps/'+map.path+'")'})
     }
 }

@@ -337,21 +337,21 @@ io.on('connection', function(socket) {
             socket.emit('pages', pages)
             socket.emit('diskusage', diskusage)
         } else {
-            let found = null
+            let pageid = null
             for (const p in pages) {
                 // Allow for different pages with different tokens
                 if (pages[p].token == secret) {
                     // Prefer an active page
-                    if (!found || pages[p].active) {
-                        found = p
+                    if (!pageid || pages[p].active) {
+                        pageid = p
                     }
                 }
             }
-            if (!found) {
+            if (!pageid) {
                 socket.disconnect()
                 return
             }
-            socket.emit('page', pages[found], found)
+            socket.emit('page', pages[pageid], pageid)
             fs.readdir('./public/maps/'+pageid, null, (err, files) => {
                 if (err) {
                     if (err.code != 'ENOENT') {
@@ -368,8 +368,8 @@ io.on('connection', function(socket) {
                     }
                 }
             })
-            if (pages[found].map) {
-                  socket.emit('map', pages[found].map, found)
+            if (pages[pageid].map) {
+                  socket.emit('map', pages[pageid].map, pageid)
             }
         }
         socket.on('marker', (marker, pageid) => {
