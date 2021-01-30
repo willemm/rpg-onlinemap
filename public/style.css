@@ -369,6 +369,11 @@ body.disconnected .noconnection {
     border: 1px solid #800;
     border-radius: 5px;
     cursor: pointer;
-    width: 150px;
+    width: 10px;
     text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+#deletepage:hover {
+    width: 150px;
 }

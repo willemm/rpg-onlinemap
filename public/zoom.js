@@ -87,7 +87,7 @@ function delete_page()
 {
     var pageid = currentpageid
     if (pageid) {
-        if (confirm('Delete the page '+document.title+" ?\nThis is permanent!")) {
+        if (prompt('Remove the session '+document.title+" ?\nThis is permanent! Type 'yes' to confirm") == 'yes') {
             socket.emit('deletepage', pageid)
         }
     }
