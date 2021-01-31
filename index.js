@@ -9,11 +9,16 @@ http.listen(80, function() {
     console.log('Starting server on port 80')
 })
 
-const maxpages = 10
+const maxpages = process.env.MAX_SESSIONS || 10
+const adminsecret = process.env.DUNGEONMASTER_TOKEN || 'test'
+const maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
+const maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 1024)
+const maxmarkers = process.env.MAX_MARKERS || 1000
+const maxareas =   process.env.MAX_AREAS   || 100
+const maxeffects = process.env.MAX_EFFECTS || 20
+const maxinitiative = process.env.MAX_INITIATIVE || 50
+
 let pages = {}
-let adminsecret = process.env.DUNGEONMASTER_TOKEN
-let maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
-let maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 1024)
 let pageid = 0
 let diskusagebytes = 0
 let diskusage = 'N/A'
@@ -276,6 +281,10 @@ io.on('connection', function(socket) {
                 if (!pages[pageid]) { return }
 
                 if (initiative.order) {
+                    if (initiative.order.length > maxinitiative) {
+                        socket.emit('message', 'Initiative list too large: '+initiative.order.length+' > '+maxinitiative)
+                        return
+                    }
                     let order = []
                     for (o of initiative.order) {
                         order.push({
@@ -376,6 +385,13 @@ io.on('connection', function(socket) {
             if (!pages[pageid]) { return }
             if (!pages[pageid].markers[marker.id]) {
                 if (!admin) { return }
+                // Check list size
+                let keys = Object.keys(pages[pageid].markers)
+                if (keys.length >= maxmarkers) {
+                    keys.sort()
+                    console.log('Too many markers on '+pageid+', deleting '+keys[0])
+                    delete pages[pageid].markers[keys[0]]
+                }
                 pages[pageid].markers[marker.id] = {
                     id:     marker.id,
                     charid: marker.charid,
@@ -400,6 +416,13 @@ io.on('connection', function(socket) {
         socket.on('area', (area, pageid) => {
             if (!pages[pageid]) { return }
             if (!pages[pageid].areas[area.id]) {
+                // Check list size
+                let keys = Object.keys(pages[pageid].areas)
+                if (keys.length >= maxareas) {
+                    keys.sort()
+                    console.log('Too many areas on '+pageid+', deleting '+keys[0])
+                    delete pages[pageid].areas[keys[0]]
+                }
                 pages[pageid].areas[area.id] = {
                     id:     area.id,
                     cls:    area.cls,
@@ -418,6 +441,13 @@ io.on('connection', function(socket) {
         socket.on('effect', (effect, pageid) => {
             if (!pages[pageid]) { return }
             if (!pages[pageid].effects[effect.id]) {
+                // Check list size
+                let keys = Object.keys(pages[pageid].effects)
+                if (keys.length >= maxeffects) {
+                    keys.sort()
+                    console.log('Too many effects on '+pageid+', deleting '+keys[0])
+                    delete pages[pageid].effects[keys[0]]
+                }
                 pages[pageid].effects[effect.id] = {
                     id:     effect.id,
                     color:  effect.color,
