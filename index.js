@@ -128,7 +128,7 @@ io.on('connection', function(socket) {
             })
             socket.on('mapupload', (upmap, pageid) => {
                 if (!pages[pageid]) { return }
-                if (upmap.name.length > 50 || upmap.name.match(/[^A-Za-z0-9._-]/)) {
+                if (upmap.name.length > 50 || upmap.name.match(/[^A-Za-z0-9._ -]/)) {
                     console.log('mapupload', 'illegal filename', upmap.name)
                     socket.emit('message', 'illegal filename: '+upmap.name)
                     return
@@ -191,6 +191,13 @@ io.on('connection', function(socket) {
                                     io.emit('map', pages[pageid].map, pageid)
                                 }
                                 io.emit('mapfile', map, pageid)
+                                if (pages[pageid].zoom && pages[pageid].zoom.src) {
+                                    zoomre = new RegExp('maps/'+pageid+'/'+map.name+'\\.(jpeg|jpg|gif|png)')
+                                    if (pages[pageid].zoom.src.match(zoomre)) {
+                                        pages[pageid].zoom.src = 'maps/'+map.path
+                                        io.emit('zoom', pages[pageid].zoom, pageid)
+                                    }
+                                }
                                 console.log('mapupload written', mappath)
                                 save_pages()
                                 check_disk(true)
