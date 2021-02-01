@@ -210,7 +210,37 @@ io.on('connection', function(socket) {
             if (!pages[pageid]) { return }
             if (pages[pageid].frozen) { return }
             if (!pages[pageid].markers[marker.id]) {
-                if (!admin) { return }
+                if (!admin) {
+                    // Kill the marker clientside
+                    socket.emit('marker', { id: marker.id, remove: true }, pageid)
+                    return
+                }
+                if (marker.charid) {
+                    let mcount = 0
+                    // Count doubles, remove pc doubles
+                    for (key in pages[pageid].markers) {
+                        const mrk = pages[pageid].markers[key]
+                        if (mrk.charid == marker.charid) {
+                            if (mrk.cls.match(/(^| )pc( |$)/)) {
+                                io.emit('marker', { id: mrk.id, remove: true}, pageid)
+                                delete pages[pageid].markers[key]
+                            } else {
+                                mcount += 1
+                                if (mcount == 1) {
+                                    if (mrk.text != '1') {
+                                        pages[pageid].markers[key].text = '1'
+                                        io.emit('marker', pages[pageid].markers[key], pageid)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (mcount >= 1) {
+                        if (marker.text.length == 1) {
+                            marker.text = ''+(mcount+1)
+                        }
+                    }
+                }
                 // Check list size
                 let keys = Object.keys(pages[pageid].markers)
                 if (keys.length >= maxmarkers) {

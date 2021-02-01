@@ -7,11 +7,8 @@ body {
 }
 
 table {
-    border-collapse: collapse;
-}
-
-tr {
-    border-top: 3px #ffffff solid;
+    border-collapse: separate;
+    border-spacing: 0px 3px;
 }
 
 #map {
@@ -20,7 +17,7 @@ tr {
     overflow: auto;
     margin: auto;
     position: relative;
-    padding-left: 30px;
+    left: 30px;
 }
 
 #map img {
@@ -45,8 +42,8 @@ tr {
     text-align: left;
 }
 
-#characters tr.empty {
-    height: 20px;
+#characters {
+    font-size: 18px;
 }
 
 #characters tr.deleteme input {
@@ -141,112 +138,85 @@ tr {
     display: none;
 }
 
-tr.pc {
-    background: #CDE472;
+#characters tr {
     padding: 2px;
 }
 
+option.pc,
+tr.pc,
 #markers .marker.pc {
-    background: #CDE472;
+    background-color: #CDE472;
 }
 
-tr.npc1 {
-    background: #FFFFAA;
-    padding: 2px;
-}
+option.npc1,
+tr.npc1,
 #markers .marker.npc1 {
-    background: #FFFFAA;
+    background-color: #FFFFAA;
 }
 
-tr.npc2 {
-    background: #f9be49;
-    padding: 2px;
-}
-
+option.npc2,
+tr.npc2, 
 #markers .marker.npc2 {
-    background: #f9be49;
+    background-color: #f9be49;
 }
 
- 
-tr.npc3 {
-    background: #aef8fb;
-    padding: 2px;
-}
-
+option.npc3,
+tr.npc3,
 #markers .marker.npc3 {
-    background: #aef8fb;
+    background-color: #aef8fb;
 }
 
-tr.npc4 {
-    background: #e7abe2;
-    padding: 2px;
-}
-
+option.npc4,
+tr.npc4,
 #markers .marker.npc4 {
-    background: #e7abe2;
+    background-color: #e7abe2;
 }
 
-tr.npc5 {
-    background: #fa8381;
-    padding: 2px;
-}
-
+option.npc5,
+tr.npc5,
 #markers .marker.npc5 {
-    background: #fa8381;
+    background-color: #fa8381;
 }
 
-tr.npc6 {
-    background: #78fac3;
-    padding: 2px;
-}
-
+option.npc6,
+tr.npc6,
 #markers .marker.npc6 {
-    background: #78fac3;
+    background-color: #78fac3;
 }
 
-tr.npc7 {
-    background: #3071fa;
-    padding: 2px;
-    color:#ffffff;
-}
-
+option.npc7,
+tr.npc7,
 #markers .marker.npc7 {
-    background: #3071fa;
+    background-color: #3071fa;
     color:#ffffff;
 }
 
-tr.npc8 {
-    background: #8407f2;
-    padding: 2px;
-    color:#ffffff;
-}
-
+option.npc8,
+tr.npc8,
 #markers .marker.npc8 {
-    background: #8407f2;
+    background-color: #8407f2;
     color:#ffffff;
 }
 
-tr.npc9 {
-    background: #378743;
-    padding: 2px;
-    color:#ffffff;
-}
-
+option.npc9,
+tr.npc9,
 #markers .marker.npc9 {
-    background: #378743;
+    background-color: #378743;
     color:#ffffff;
 }
 
-tr.npc10 {
-    background: #CD0000;
-    padding: 2px;
-    color:#ffffff;
-}
-
+option.npc10,
+tr.npc10,
 #markers .marker.npc10 {
-    background: #CD0000;
+    background-color: #CD0000;
     color:#ffffff;
     border: 2px solid #FFCC11;
+}
+
+option.empty,
+#characters tr.empty {
+    height: 20px;
+    background-color: #ffffff;
 }
 
 #markers .marker.dead {
@@ -377,7 +347,7 @@ body.disconnected .noconnection {
     width: 250px;
 }
 
-#characters input {
+#characters input, #characters select {
     border: 1px solid #000;
     background-color: rgba(0,0,0,0.2);
     margin: 0 2px;
@@ -399,6 +369,12 @@ body.disconnected .noconnection {
 #characters input.chartype {
     width: 40px;
     font-size: 80%;
+}
+#characters select.chartype {
+    width: 50px;
+    font-size: 70%;
+    background-color: rgba(0,0,0,0.2);
+    padding: 2px 0px;
 }
 
 #fileupload {
@@ -535,8 +511,16 @@ body.frozen #thawpage {
     background-color: rgba(150,150,150,0.8);
 }
 
-body.frozen #ini-title::after {
+body.disconnected #ini-title::after {
     content: "No connection";
+    background-color: #fd8;
+    color: #c00;
+    padding: 3px 6px;
+    margin-left: 10px;
+}
+
+body.connecting #ini-title::after {
+    content: "Connecting";
     background-color: #fd8;
     color: #c00;
     padding: 3px 6px;

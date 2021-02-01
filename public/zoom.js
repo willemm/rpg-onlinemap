@@ -5,6 +5,8 @@ var currentpageid
 var zoompos = {}
 var adminonly = false
 
+var charclasslist
+
 const socket = io()
 setup_socket(socket)
 
@@ -147,8 +149,14 @@ function edit_characters()
                 tr.find('td.initiative').html('<input type="text" class="initiative" value="'+
                                                 tr.attr('data-initiative')+'">')
                 nametd.html('<input type="text" class="name" value="'+nametd.text()+'">')
-                tr.append('<td class="chartype"><input type="text" class="chartype" value="'+
+                if (charclasslist) {
+                    tr.append('<td class="chartype"><select class="chartype">'+
+                            '<option value="'+tr.attr('class')+'" selected>'+tr.attr('class')+'</option>'+
+                            charclasslist+'</select></td>')
+                } else {
+                    tr.append('<td class="chartype"><input type="text" class="chartype" value="'+
                                 tr.attr('class')+'"></td>')
+                }
 
             }
         })
@@ -162,7 +170,10 @@ function add_character_newrow()
     $('#characters').append('<tr data-initiative="" class="">'+
         '<td class="initiative newrow"><input type="text" class="initiative" value=""></td>'+
         '<td class="name newrow"><input type="text" class="name" placeholder="New Entry" value=""></td>'+
-        '<td class="chartype newrow"><input type="text" class="chartype" value="" placeholder="class"></td>'+
+        '<td class="chartype newrow">'+
+        (charclasslist ? '<select class="chartype"><option value=""></option>'+charclasslist+'</select>' :
+            '<input type="text" class="chartype" value="" placeholder="class">')+
+        '</td>'+
         '</tr>')
 }
 
@@ -242,6 +253,10 @@ function set_marker(marker, pageid)
     if (pageid != currentpageid) { return }
     if (!$('#zoompopup').is(':visible')) { return }
     var markerdiv = $('#markers .marker[data-id="'+marker.id+'"]')
+    if (marker.remove) {
+        markerdiv.remove()
+        return
+    }
     if (!markerdiv.length) {
         markerdiv = $('<div data-page="'+pageid+'" data-id="'+marker.id+
             '" data-charid="'+marker.charid+'" class="'+marker.cls+'"></div>').appendTo('#markers')
@@ -348,15 +363,36 @@ function load() {
     $('#area-effects').on('input','input', oninput_effect)
     $('#area-effects').on('change','input', emit_effect)
 
-    $('#characters').on('mousedown', 'input', function(e) { e.stopPropagation() })
+    $('#characters').on('mousedown', 'input,select', function(e) { e.stopPropagation() })
     $('#characters').on('keyup','input', check_updown)
     $('#characters').on('input','input.initiative', check_ordering)
-    $('#characters').on('input','td.newrow input', add_character_row)
-    $('#characters').on('input','td.chartype input', set_character_class)
+    $('#characters').on('input','td.newrow input,td.newrow select', add_character_row)
+    $('#characters').on('input','td.chartype input,td.chartype select', set_character_class)
     $('#pagetitle').on('change', set_page_title)
     $('#pageselect').on('change', select_page)
 
     $('#fileupload input.mapnamenew').val('')
+
+    var stylecss = $('link[href="style.css"]')
+    if (stylecss.length) {
+        try {
+            var rules = stylecss[0].sheet.cssRules
+            var classarray = []
+            for (var i = 0; i < rules.length; i++) {
+                var rule = rules[i]
+                var m = rule.selectorText.match(/^option\.([A-Za-z0-9_-]+)(,|$)/)
+                if (m) {
+                    classarray.push('<option class="'+m[1]+'" value="'+m[1]+'">'+m[1]+'</option>')
+                }
+            }
+            if (classarray.length > 0) {
+                classarray.push('<option class="deleteme" value="">Delete</option>')
+                charclasslist = classarray.join('')
+            }
+        } catch (e) {
+            console.log('scan stylesheet for classes exception', e)
+        }
+    }
 }
 
 function hide_marker_menu(e)
@@ -857,30 +893,17 @@ function start_marker(e)
 {
     if (e.which != 1) return
     if (!$('#zoompopup').is(':visible')) return false
-    var multi = false
-
     var ch = $(this)
     var mid = ch.find('td.name').text().trim()
     var cls = ['marker']
     var charid = ch.attr('data-id')
 
-    if (!ch.hasClass('pc')) {
-        multi = true
-    }
     mid = mid[0]
     if (mid) {
         var markerid = get_uid()
         var marker = $('#markers div[data-charid="'+charid+'"]')
         if (marker.length) {
-            if (multi) {
-                if (marker.length == 1) {
-                    socket.emit('marker', {
-                        id:     marker.attr('data-id'),
-                        text:   '1'
-                    }, marker.attr('data-page'))
-                }
-                mid = marker.length + 1
-            } else {
+            if (ch.hasClass('pc')) {
                 markerid = marker.attr('data-id')
                 marker.remove()
             }
