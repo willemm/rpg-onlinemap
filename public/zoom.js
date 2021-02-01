@@ -924,8 +924,8 @@ function set_zoom(sp)
     $('#zoom').css({width: zoomw+'px', height: zoomh+'px', left: zoomx+'px', top: zoomy+'px'})
     $('#zoom').html('<img src="'+sp.src+'">')
     $('#zoomoverlay').css({width: zoomw+'px', height: zoomh+'px', left: zoomx+'px', top: zoomy+'px'})
-    $('#zoomclose').css({right: (zoomx-40)+'px', top: zoomy+'px'})
-    $('#zoomclear').css({right: (zoomx-40)+'px', top: (zoomy+zoomh-40)+'px'})
+    $('#zoomclose').css({left: (zoomx+zoomw)+'px', top: zoomy+'px'})
+    $('#zoomclear').css({left: (zoomx+zoomw)+'px', top: (zoomy+zoomh-40)+'px'})
     var iw = sp.imw * scale
     var ih = sp.imh * scale
     var ix = -sp.x * scale
