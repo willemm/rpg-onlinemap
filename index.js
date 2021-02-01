@@ -219,7 +219,7 @@ io.on('connection', function(socket) {
             if (marker.text != undefined) {
                 pages[pageid].markers[marker.id].text = marker.text
             }
-            if (marker.cls != undefined) {
+            if (admin && marker.cls != undefined) {
                 pages[pageid].markers[marker.id].cls = marker.cls
             }
             io.emit('marker', pages[pageid].markers[marker.id], pageid)
