@@ -58,11 +58,11 @@ for (const pagefile of fs.readdirSync('./pages')) {
 }
 
 io.on('connection', function(socket) {
-    console.log('Connection from '+socket.conn.remoteAddress+' id='+socket.id)
+    console.log('Connection from '+(socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address)+' id='+socket.id)
 
     let admin = false
 
-    socket.on('join', async (secret) => {
+    socket.on('join', (secret) => {
         console.log('join with token '+secret)
         if (secret == adminsecret) {
             check_disk()
@@ -94,20 +94,9 @@ io.on('connection', function(socket) {
                 socket.emit('pages', pages)
                 save_pages()
             })
-            socket.on('deletepage', async (pageid) => {
+            socket.on('deletepage', (pageid) => {
                 if (!pages[pageid]) { return }
-                console.log('Removing page '+pageid+' ('+pages[pageid].title+')')
-                console.log('Removing folder ./public/maps/'+pageid)
-                try {
-                    await rmdir_recursive('./public/maps/'+pageid)
-                    await fsp.unlink('./pages/'+pageid+'.json')
-                    delete pages[pageid]
-                    socket.emit('page', {}, null)
-                    socket.emit('pages', pages)
-                } catch (ex) {
-                    console.log('Failed to remove ./public/maps/'+pageid+': ', ex)
-                    socket.emit('message', 'Failed to remove page '+pageid+': '+ ex)
-                }
+                do_deletepage(socket, pageid)
             })
             socket.on('zoom', (zoom, pageid) => {
                 if (!pages[pageid]) { return }
@@ -123,114 +112,19 @@ io.on('connection', function(socket) {
                 io.emit('zoom', pages[pageid].zoom, pageid)
                 save_pages()
             })
-            socket.on('mapupload', async (upmap, pageid) => {
-                if (!pages[pageid]) { return }
-                if (upmap.name.length > 50 || upmap.name.match(/[^A-Za-z0-9._ -]/)) {
-                    console.log('mapupload', 'illegal filename', upmap.name)
-                    socket.emit('message', 'illegal filename: '+upmap.name)
-                    return
-                }
-                if (!upmap.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
-                    console.log('mapupload', 'illegal file extension', upmap.fileext)
-                    socket.emit('message', 'illegal file extension: '+upmap.fileext)
-                    return
-                }
-                if (upmap.data.length > maxmapsize) {
-                    console.log('mapupload', 'file too large', upmap.data.length)
-                    socket.emit('message', 'file too large: '+formatBytes(upmap.data.length)+' > '+formatBytes(maxmapsize))
-                    return
-                }
-                if ((diskusagebytes + upmap.data.length) > maxdiskuse) {
-                    console.log('mapupload', 'disk too full', diskusage, upmap.data.length)
-                    socket.emit('message', 'disk too full: '+diskusage+' + '+formatBytes(upmap.data.length) + ' > '+formatBytes(maxdiskuse))
-                    return
-                }
-                let map = {
-                    path: pageid+'/'+upmap.name+'-'+get_uid()+'.'+upmap.fileext,
-                    name: upmap.name
-                }
-                const mapfolder = './public/maps/'+pageid
-                try {
-                    await fsp.mkdir(mapfolder, { recursive: true })
-                    for (const file of await fsp.readdir(mapfolder)) {
-                        const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
-                        if (m && m[1] == map.name) {
-                            console.log('Removing for upload', mapfolder+'/'+file)
-                            await fsp.unlink(mapfolder+'/'+file)
-                        }
-                    }
-                    const mappath = './public/maps/'+map.path
-                    console.log('Writing map file', upmap.name, upmap.data.length)
-                    await fsp.writeFile(mappath, upmap.data, 'Binary')
-                    if (upmap.active) {
-                        pages[pageid].map = map
-                        io.emit('map', pages[pageid].map, pageid)
-                    }
-                    io.emit('mapfile', map, pageid)
-                    if (pages[pageid].zoom && pages[pageid].zoom.src) {
-                        zoomre = new RegExp('maps/'+pageid+'/'+map.name+'\\.(jpeg|jpg|gif|png)')
-                        if (pages[pageid].zoom.src.match(zoomre)) {
-                            pages[pageid].zoom.src = 'maps/'+map.path
-                            io.emit('zoom', pages[pageid].zoom, pageid)
-                        }
-                    }
-                    console.log('mapupload written', mappath)
-                    save_pages()
-                    check_disk(true)
-                } catch (ex) {
-                    console.log('mapupload', 'Mapupload error: ', ex)
-                    socket.emit('message', 'Mapupload error: '+ex)
-                    return
-                }
+            socket.on('mapupload', (upmap, pageid) => {
+                console.log('mapupload', upmap.name, upmap.id, pageid)
+                do_mapupload(socket, upmap, pageid)
             })
-            socket.on('mapremove', async (mapname, pageid) => {
-                try {
-                    let done = false
-                    for (const file of await fsp.readdir('./public/maps/'+pageid)) {
-                        if (m && m[1] == mapname) {
-                            const mappath = './public/maps/'+pageid+'/'+file
-                            console.log('Removing mapfile '+mappath)
-                            await fsp.unlink(mappath)
-                            console.log('File removed: '+mappath)
-                            io.emit('mapremove', { name: mapname }, pageid)
-                            done = true
-                        }
-                    }
-                    check_disk(true)
-                    if (!done) {
-                        socket.emit('mapremove', {
-                            name: mapname,
-                            error: 'Not found'
-                        }, pageid)
-                    }
-                } catch (ex) {
-                    console.log('error deleting map', ex)
-                    socket.emit('message', 'Error deleting map: '+ex)
-                    return
-                }
+            socket.on('mapuploaddata', (upmap, pageid) => {
+                console.log('mapuploaddata', upmap.name, upmap.id, pageid)
+                do_mapuploaddata(socket, upmap, pageid)
             })
-            socket.on('map', async (map, pageid) => {
-                if (!pages[pageid]) { return }
-                try {
-                    for (const file of await fsp.readdir('./public/maps/'+pageid)) {
-                        const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
-                        if (m) {
-                            if (m[1] == map.name) {
-                                pages[pageid].map = {
-                                    name: map.name,
-                                    path: pageid+'/'+file
-                                }
-                                io.emit('map', pages[pageid].map, pageid)
-                                save_pages()
-                                return
-                            }
-                        }
-                    }
-                    socket.emit('message', 'map '+map.name+' not found')
-                } catch (ex) {
-                    socket.emit('message', 'error reading maps '+ex)
-                    return
-                }
+            socket.on('mapremove', (mapname, pageid) => {
+                do_mapremove(socket, mapname, pageid)
+            })
+            socket.on('map', (map, pageid) => {
+                do_map(socket, map, pageid)
             })
             socket.on('initiative', (initiative, pageid) => {
                 if (!pages[pageid]) { return }
@@ -253,28 +147,8 @@ io.on('connection', function(socket) {
                     io.emit('initiative', order, pageid)
                 }
             })
-            socket.on('selectpage', async (pageid) => {
-                if (!pages[pageid]) {
-                    return { error: 'Page '+pageid+' not found' }
-                }
-                socket.emit('page', pages[pageid], pageid)
-                try {
-                    for (const file of await fsp.readdir('./public/maps/'+pageid)) {
-                        const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
-                        if (m) {
-                            const mapname = m[1]
-                            const mappath = pageid+'/'+file
-                            socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
-                        }
-                    }
-                    if (pages[pageid].map) {
-                        socket.emit('map', pages[pageid].map, pageid)
-                    }
-                } catch (ex) {
-                    if (ex.code != 'ENOENT') {
-                        console.log('readmaps error', ex)
-                    }
-                }
+            socket.on('selectpage', (pageid) => {
+                do_selectpage(socket, pageid)
             })
             socket.on('clearzoom', (pageid) => {
                 if (!pages[pageid]) { return }
@@ -314,23 +188,7 @@ io.on('connection', function(socket) {
                 return
             }
             socket.emit('page', pages[pageid], pageid)
-            if (pages[pageid].map) {
-                  socket.emit('map', pages[pageid].map, pageid)
-            }
-            try {
-                for (const file of await fsp.readdir('./public/maps/'+pageid)) {
-                    const m = file.match(/^(.*?)(-[0-9a-z]*)?\.(jpeg|jpg|gif|png)$/i)
-                    if (m) {
-                        const mapname = m[1]
-                        const mappath = pageid+'/'+file
-                        socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
-                    }
-                }
-            } catch (ex) {
-                if (ex.code != 'ENOENT') {
-                    console.log('readmaps error', ex)
-                }
-            }
+            do_selectpage(socket, pageid)
         }
         socket.on('marker', (marker, pageid) => {
             if (!pages[pageid]) { return }
@@ -446,6 +304,219 @@ io.on('connection', function(socket) {
         save_pages()
     })
 })
+
+async function do_deletepage(socket, pageid)
+{
+    console.log('Removing page '+pageid+' ('+pages[pageid].title+')')
+    console.log('Removing folder ./public/maps/'+pageid)
+    try {
+        await rmdir_recursive('./public/maps/'+pageid)
+        await fsp.unlink('./pages/'+pageid+'.json')
+        delete pages[pageid]
+        socket.emit('page', {}, null)
+        socket.emit('pages', pages)
+    } catch (ex) {
+        console.log('Failed to remove ./public/maps/'+pageid+': ', ex)
+        socket.emit('message', 'Failed to remove page '+pageid+': '+ ex)
+    }
+}
+
+function checkmap(map)
+{
+    if (map.name.length > 50 || map.name.match(/[^A-Za-z0-9._ -]/)) {
+        console.log('mapupload', 'illegal filename', map.name)
+        socket.emit('message', 'illegal filename: '+map.name)
+        return false
+    }
+    if (!map.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
+        console.log('mapupload', 'illegal file extension', map.fileext)
+        socket.emit('message', 'illegal file extension: '+map.fileext)
+        return false
+    }
+    if (!map.id.match(/^[a-z0-9]*$/)) {
+        console.log('mapupload', 'illegal file id', map.id)
+        socket.emit('message', 'illegal file id: '+map.id)
+        return false
+    }
+    return true
+}
+
+async function do_mapupload(socket, upmap, pageid)
+{
+    if (!pages[pageid]) { return }
+    if (!checkmap(upmap)) { return }
+    if (upmap.filesize > maxmapsize) {
+        console.log('mapupload', 'file too large', upmap.data.length)
+        socket.emit('message', 'file too large: '+formatBytes(upmap.data.length)+' > '+formatBytes(maxmapsize))
+        return
+    }
+    const mapfolder = './public/maps/'+pageid
+    try {
+        await fsp.mkdir(mapfolder, { recursive: true })
+        for (const file of await fsp.readdir(mapfolder)) {
+            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            if (m && m[1] == upmap.name) {
+                console.log('Removing for upload', mapfolder+'/'+file)
+                await fsp.unlink(mapfolder+'/'+file)
+            }
+        }
+        socket.emit('mapuploaddata', {
+                id: upmap.id,
+                name: upmap.name,
+                fileext: upmap.fileext,
+                path: pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext,
+                pos: 0
+            }, pageid)
+    } catch (ex) {
+        console.log('mapupload', 'Mapupload error: ', ex)
+        socket.emit('message', 'Mapupload error: '+ex)
+        return
+    }
+}
+
+async function do_mapuploaddata(socket, upmap, pageid)
+{
+    if (!pages[pageid]) { return }
+    if (!checkmap(upmap)) { return }
+    if ((diskusagebytes + upmap.data.length) > maxdiskuse) {
+        console.log('mapupload', 'disk too full', diskusage, upmap.data.length)
+        socket.emit('message', 'disk too full: '+diskusage+' + '+formatBytes(upmap.data.length) + ' > '+formatBytes(maxdiskuse))
+        return
+    }
+    try {
+        const mappath = './public/maps/'+pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
+        console.log('Writing map file', mappath, upmap.data.length)
+        let cursize = 0
+        try {
+            const fstat = await fsp.stat(mappath)
+            cursize = fstat.size
+        } catch (ex) {
+            if (ex.code != 'ENOENT') {
+                throw(ex)
+            }
+        }
+        if (cursize != upmap.pos) {
+            console.log('mapupload size mismatch error: '+cursize+' <> '+upmap.pos)
+            socket.emit('message', 'mapupload size mismatch error: '+cursize+' <> '+upmap.pos)
+            return
+        }
+        await fsp.appendFile(mappath, upmap.data, 'Binary')
+        diskusagebytes = diskusagebytes + upmap.data.length
+        if (!upmap.finished) {
+            socket.emit('mapuploaddata', {
+                    id: upmap.id,
+                    name: upmap.name,
+                    fileext: upmap.fileext,
+                    path: pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext,
+                    pos: upmap.pos + upmap.data.length
+                }, pageid)
+            check_disk()
+        } else {
+            let map = {
+                id: upmap.id,
+                path: pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext,
+                name: upmap.name
+            }
+            if (upmap.active) {
+                pages[pageid].map = map
+                io.emit('map', pages[pageid].map, pageid)
+            }
+            io.emit('mapfile', map, pageid)
+            if (pages[pageid].zoom && pages[pageid].zoom.src) {
+                zoomre = new RegExp('^maps/'+pageid+'/'+map.name+'\\-[0-9a-z]*\\.(jpeg|jpg|gif|png)$')
+                if (pages[pageid].zoom.src.match(zoomre)) {
+                    pages[pageid].zoom.src = 'maps/'+map.path
+                    io.emit('zoom', pages[pageid].zoom, pageid)
+                }
+            }
+            console.log('mapupload written', mappath)
+            save_pages()
+            check_disk(true)
+        }
+    } catch (ex) {
+        console.log('mapupload', 'Mapupload error: ', ex)
+        socket.emit('message', 'Mapupload error: '+ex)
+        return
+    }
+}
+
+async function do_mapremove(socket, mapname, pageid)
+{
+    try {
+        let done = false
+        for (const file of await fsp.readdir('./public/maps/'+pageid)) {
+            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            if (m && m[1] == mapname) {
+                const mappath = './public/maps/'+pageid+'/'+file
+                console.log('Removing mapfile '+mappath)
+                await fsp.unlink(mappath)
+                console.log('File removed: '+mappath)
+                io.emit('mapremove', { name: mapname }, pageid)
+                done = true
+            }
+        }
+        check_disk(true)
+        if (!done) {
+            socket.emit('mapremove', {
+                name: mapname,
+                error: 'Not found'
+            }, pageid)
+        }
+    } catch (ex) {
+        console.log('error deleting map', ex)
+        socket.emit('message', 'Error deleting map: '+ex)
+    }
+}
+
+async function do_map(socket, map, pageid)
+{
+    if (!pages[pageid]) { return }
+    try {
+        for (const file of await fsp.readdir('./public/maps/'+pageid)) {
+            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            if (m) {
+                if (m[1] == map.name) {
+                    pages[pageid].map = {
+                        name: map.name,
+                        path: pageid+'/'+file
+                    }
+                    io.emit('map', pages[pageid].map, pageid)
+                    save_pages()
+                    return
+                }
+            }
+        }
+        socket.emit('message', 'map '+map.name+' not found')
+    } catch (ex) {
+        socket.emit('message', 'error reading maps '+ex)
+        return
+    }
+}
+
+async function do_selectpage(socket, pageid)
+{
+    if (!pages[pageid]) {
+        return { error: 'Page '+pageid+' not found' }
+    }
+    socket.emit('page', pages[pageid], pageid)
+    try {
+        for (const file of await fsp.readdir('./public/maps/'+pageid)) {
+            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            if (m) {
+                const mapname = m[1]
+                const mappath = pageid+'/'+file
+                socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
+            }
+        }
+        if (pages[pageid].map) {
+            socket.emit('map', pages[pageid].map, pageid)
+        }
+    } catch (ex) {
+        if (ex.code != 'ENOENT') {
+            console.log('readmaps error', ex)
+        }
+    }
+}
 
 function save_page_timeout()
 {

@@ -74,6 +74,7 @@ function get_pages(pages)
         socket.on('message', function(err) {
             alert(err)
         })
+        socket.on('mapuploaddata', upload_map_data)
     }
     var options = []
     for (p in pages) {
@@ -487,6 +488,52 @@ function remove_mapfile(map, pageid)
     $('#fileupload tr.mapupload[data-page="'+pageid+'"][data-name="'+map.name+'"]').remove()
 }
 
+var uploads = {}
+
+function upload_map_data(datareq, pageid)
+{
+    var upl = uploads[pageid+'/'+datareq.id]
+    if (!upl) {
+        console.log('Error: Requested unkown map data', datareq, pageid)
+        return
+    }
+    var endpos = datareq.pos + (100*1024)
+    var filetr = $('#fileupload tr.mapupload[data-page="'+pageid+'"][data-name="'+datareq.name+'"]')
+    if (endpos >= upl.file.size) {
+        var active = filetr.find('input.active').is(':checked')
+        upl.reader.onload = function(e) {
+            var data = e.target.result
+            socket.emit('mapuploaddata', {
+                id: datareq.id,
+                name: datareq.name,
+                fileext: datareq.fileext,
+                data: data,
+                pos: datareq.pos,
+                active: active,
+                finished: true
+            }, pageid)
+            filetr.removeClass('uploading')
+            filetr.find('div.upload.button').text('browse')
+        }
+        upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos))
+    } else {
+        upl.reader.onload = function(e) {
+            var data = e.target.result
+            socket.emit('mapuploaddata', {
+                id: datareq.id,
+                name: datareq.name,
+                fileext: datareq.fileext,
+                data: data,
+                pos: datareq.pos,
+                finished: false
+            }, pageid)
+        }
+        var perc = Math.round(100*(datareq.pos / upl.file.size))
+        filetr.find('div.upload.button').text(perc+'%')
+        upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos, endpos))
+    }
+}
+
 function upload_map(e)
 {
     var fileinp = $(this)
@@ -507,16 +554,16 @@ function upload_map(e)
     }
     var filename = filetr.attr('data-name')
     var filepage = filetr.attr('data-page')
-    var active = filetr.find('input.active').is(':checked')
     var fileext = file.name.replace(/.*\./,'')
     var reader = new FileReader()
     filetr.removeClass('failed').addClass('uploading')
-    reader.onload = function(e) {
-        var data = e.target.result
-        socket.emit('mapupload', {name: filename, fileext: fileext, data: data, active: active}, filepage)
-        filetr.removeClass('uploading')
+    var map_id = get_uid()
+    uploads[filepage+'/'+map_id] = {
+        reader: reader,
+        file: file
     }
-    reader.readAsBinaryString(file)
+    socket.emit('mapupload', { id: map_id, name: filename, filesize: file.size, fileext: fileext }, filepage)
+    // reader.readAsArrayBuffer(file.slice(100*1024,200*1024))
 }
 
 function set_aoe_styles()
