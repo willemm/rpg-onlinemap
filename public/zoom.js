@@ -20,16 +20,20 @@ function setup_socket(socket)
     })
     socket.on('page', function(page, pageid) {
         $(document.body).removeClass('disconnected connecting connected').addClass('connected')
-        currentpageid = pageid
-        sessionStorage.setItem('currentpageid', pageid)
-        if (pageid && adminonly) {
+        if (pageid || !page) {
+            currentpageid = pageid
+            sessionStorage.setItem('currentpageid', pageid)
+        } else if (page && page.id != currentpageid) {
+            return
+        }
+        if (page && adminonly) {
             $('#pagetitle').attr('placeholder', 'Session title')
             $('.editonly').show()
         } else {
             $('#pagetitle').attr('placeholder', 'Select session')
             $('.editonly').hide()
         }
-        show_page(page)
+        show_page(page || {})
     })
     socket.on('initiative', set_initiative)
     socket.on('marker', set_marker)
@@ -51,6 +55,7 @@ function setup_socket(socket)
     })
 
     socket.on('pages', get_pages)
+    socket.on('freeze', set_freeze)
 }
 
 function get_pages(pages)
@@ -68,11 +73,15 @@ function get_pages(pages)
         $('#fileupload').on('click', '.remove.button', confirm_remove_map)
         $('#ini-title').on('click', '.editbutton', edit_characters)
 
-        $('#deletepage').on('click', delete_page)
+        $('#configbutton').click(function(e) { $('#configurations .configs').toggle() })
+        $('#freezepage').click(function(e) { socket.emit('freeze', true, currentpageid) })
+        $('#thawpage').click(function(e) { socket.emit('freeze', false, currentpageid) })
+        $('#deletepage').click(delete_page)
 
         $('#markers').on('contextmenu', '.marker', show_marker_menu)
         $('#markers').on('mousedown', '.markermenu', function(e) { e.stopPropagation() })
         $('#markers').on('click', '.markermenu .menuitem', send_marker_menu)
+
 
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         socket.on('message', function(err) {
@@ -266,10 +275,21 @@ function set_pagetitle(pagetitle, pageid) {
     }
 }
 
+function set_freeze(frozen, pageid) {
+    if (pageid == currentpageid) {
+        if (frozen) {
+            $(document.body).addClass('frozen')
+        } else {
+            $(document.body).removeClass('frozen')
+        }
+    }
+}
+
 function show_page(page)
 {
     $('#fileupload tr.mapupload:not(.mapuploadnew)').remove()
     set_pagetitle(page.title || '', page.id)
+    set_freeze(page.frozen, page.id)
     if (page.zoom) {
         set_zoom(page.zoom)
     } else {

@@ -40,8 +40,9 @@ tr {
     text-align: left;
 }
 
-#ini-title {
+.ini-title {
     font-weight: bold;
+    text-align: left;
 }
 
 #characters tr.empty {
@@ -366,7 +367,7 @@ body.disconnected .noconnection {
     display: initial;
 }
 
-#ini-title .editbutton{
+.ini-title .editbutton{
     float: right;
 }
 
@@ -457,23 +458,55 @@ body.disconnected .noconnection {
     color: black;
 }
 
-#deletepage {
+#configurations {
     margin-top: 40px;
+    width: 180px;
+}
+
+#configurations .configs {
+    display: none;
+}
+
+#configurations #configbutton {
+    width: 12px;
+    height: 20px;
+    font-size: 30px;
+}
+
+#configurations .button {
+    border: 1px solid #000;
+    box-shadow: 1px 1px 3px #000000;
+    border-radius: 8px;
+    margin: 3px;
+    padding: 2px 5px;
+    cursor: pointer;
+}
+
+#configurations #deletepage.button
+{
     color: #c00;
     padding: 4px;
     font-size: 12px;
     border: 1px solid #800;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
-    width: 10px;
     text-align: center;
     overflow: hidden;
     white-space: nowrap;
 }
 
-#deletepage:hover {
-    width: 150px;
+body.frozen #freezepage {
+    color: #888;
 }
+
+#thawpage {
+    color: #888;
+}
+
+body.frozen #thawpage {
+    color: #000;
+}
+
 
 .contextmenu {
     background-color: rgba(200,200,200,0.5);
@@ -503,7 +536,21 @@ body.disconnected .noconnection {
     cursor: pointer;
 }
 
-.contextmenu .menuitem:hover {
+.contextmenu .menuitem::hover {
     text-shadow: 0px 0px 3px #ffffff, 1px 1px 2px #cccccc;
     background-color: rgba(150,150,150,0.8);
+}
+
+body.frozen #ini-title::before {
+    content: "Session freeze";
+    color: #cdf;
+    background-color: #00f;
+    padding: 3px 6px;
+    border: none;
+    border-radius: 10px;
+    margin-right: 10px;
+}
+
+body.frozen #initiative {
+    background-image: repeating-linear-gradient(40deg, #ffffff 0px, #44ddff 12px, #ffffff 15px, #ffffff 50px);
 }
