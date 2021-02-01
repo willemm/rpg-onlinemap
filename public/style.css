@@ -357,12 +357,6 @@ td.aoe-close {
     display: none;
 }
 
-.noconnection {
-    display: none;
-    background-color: #fd8;
-    color: #c00;
-}
-
 body.disconnected .noconnection {
     display: initial;
 }
@@ -539,6 +533,14 @@ body.frozen #thawpage {
 .contextmenu .menuitem::hover {
     text-shadow: 0px 0px 3px #ffffff, 1px 1px 2px #cccccc;
     background-color: rgba(150,150,150,0.8);
+}
+
+body.frozen #ini-title::after {
+    content: "No connection";
+    background-color: #fd8;
+    color: #c00;
+    padding: 3px 6px;
+    margin-left: 10px;
 }
 
 body.frozen #ini-title::before {
