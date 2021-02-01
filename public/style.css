@@ -1,27 +1,26 @@
 
-body { 
-	font-family: sans-serif;
-	background-image: url("bg01.jpg");
-	text-align: center;
-	overflow: hidden;
-
+body {
+    font-family: sans-serif;
+    background-image: url("bg01.jpg");
+    text-align: center;
+    /* overflow: hidden; */
 }
 
 table {
-	border-collapse: collapse;
+    border-collapse: collapse;
 }
 
 tr {
-	border-top: 3px #ffffff solid;
-	
+    border-top: 3px #ffffff solid;
 }
 
 #map {
-	width: 1250px;
-	height: calc(100vh - 20px);
-	overflow: auto;
-	margin: auto;
+    /*width: 1250px; */
+    height: calc(100vh - 20px);
+    overflow: auto;
+    margin: auto;
     position: relative;
+    padding-left: 30px;
 }
 
 #map img {
@@ -31,72 +30,37 @@ tr {
 }
 
 #initiative {
-	background: white;
-	width: 300px;
-	padding: 5px;
-	float: left;
-	position: relative;
-	left: 150px;
-	font-size: 20px;
-	text-align: left;
+    background: white;
+    width: 300px;
+    padding: 10px;
+    float: left;
+    position: relative;
+    left: 20px;
+    font-size: 14px;
+    text-align: left;
 }
 
 #ini-title {
-	font-weight: bold;
-}
-
-tr.pc {
-	background: #CDE472;
-	padding: 2px;
+    font-weight: bold;
 }
 
 #characters tr.empty {
-        height: 20px;
+    height: 20px;
 }
 
 #characters tr.deleteme input {
-  text-decoration: line-through;
-  color: rgba(0,0,0,0.3);
+    text-decoration: line-through;
+    color: rgba(0,0,0,0.3);
 }
-
-tr.npc1 {
-	background: #FFC469;
-	padding: 2px;
-}
-tr.npc2 {
-	background: #C0D9D9;
-	padding: 2px;
-}
-tr.npc3 {
-	background: #ECC8EC;
-	padding: 2px;
-}
-tr.npc4 {
-	background: #FEF1B5;
-	padding: 2px;
-}
-tr.npc5 {
-	background: #EEB4B4;
-	padding: 2px;
-}
-
-#ini-dead {
-	height:100px;
-	border: 3px dotted red;
-	margin-top: 10px;
-	margin-bottom: 10px;
-	text-align: center;
-}
-
 
 .potions td {
-	font-size: 20px;
-	background: #cccccc;
+    font-size: 20px;
+    background: #cccccc;
 }
 
 #ini-footer {
-	font-size: 10px;
-	padding-top:40px;
+    font-size: 10px;
+    padding-top:10px;
 }
 
 #selector {
@@ -119,7 +83,6 @@ tr.npc5 {
     width: 100%;
     height: 100%;
     margin: auto;
-
     box-shadow: 0 0 20px 5px #000;
     overflow: hidden;
     z-index: 10;
@@ -165,29 +128,120 @@ tr.npc5 {
     vertical-align: top;
     width: 30px;
     height: 30px;
-
     border: 2px solid #000000;
     border-radius: 15px;
-	background: #CDE472;
+    background: #E0E0E0;
     box-shadow: 1px 2px 10px #000;
     color: #000;
     cursor: pointer;
 }
 
+tr.pc {
+    background: #CDE472;
+    padding: 2px;
+}
+
+#markers .marker.pc {
+    background: #CDE472;
+}
+
+tr.npc1 {
+    background: #FFFFAA;
+    padding: 2px;
+}
 #markers .marker.npc1 {
-	background: #FFC469;
+    background: #FFFFAA;
 }
+
+tr.npc2 {
+    background: #f9be49;
+    padding: 2px;
+}
+
 #markers .marker.npc2 {
-	background: #C0D9D9;
+    background: #f9be49;
 }
+
+ 
+tr.npc3 {
+    background: #aef8fb;
+    padding: 2px;
+}
+
 #markers .marker.npc3 {
-	background: #ECC8EC;
+    background: #aef8fb;
 }
+
+tr.npc4 {
+    background: #e7abe2;
+    padding: 2px;
+}
+
 #markers .marker.npc4 {
-	background: #FEF1B5;
+    background: #e7abe2;
 }
+
+tr.npc5 {
+    background: #fa8381;
+    padding: 2px;
+}
+
 #markers .marker.npc5 {
-	background: #EEB4B4;
+    background: #fa8381;
+}
+
+tr.npc6 {
+    background: #78fac3;
+    padding: 2px;
+}
+
+#markers .marker.npc6 {
+    background: #78fac3;
+}
+
+tr.npc7 {
+    background: #3071fa;
+    padding: 2px;
+    color:#ffffff;
+}
+
+#markers .marker.npc7 {
+    background: #3071fa;
+    color:#ffffff;
+}
+
+tr.npc8 {
+    background: #8407f2;
+    padding: 2px;
+    color:#ffffff;
+}
+
+#markers .marker.npc8 {
+    background: #8407f2;
+    color:#ffffff;
+}
+
+tr.npc9 {
+    background: #378743;
+    padding: 2px;
+    color:#ffffff;
+}
+
+#markers .marker.npc9 {
+    background: #378743;
+    color:#ffffff;
+}
+
+tr.npc10 {
+    background: #CD0000;
+    padding: 2px;
+    color:#ffffff;
+}
+
+#markers .marker.npc10 {
+    background: #CD0000;
+    color:#ffffff;
+    border: 2px solid #FFCC11;
 }
 
 table#area-effects {
@@ -289,47 +343,47 @@ body.disconnected .noconnection {
 }
 
 #ini-title .editbutton{
-  float: right;
+    float: right;
 }
 
 #characters {
-  margin-bottom: 30px;
+    margin-bottom: 30px;
 }
 
 #characters td.initiative {
-  width: 50px;
+    width: 50px;
 }
+
 #characters td.name {
-  width: 250px;
+    width: 250px;
 }
 
 #characters input {
-  border: 1px solid #000;
-  background-color: rgba(0,0,0,0.2);
-  margin: 0 2px;
-  padding: 0 2px;
-  height: 20px;
-  font: inherit;
-  font-size: 90%;
+    border: 1px solid #000;
+    background-color: rgba(0,0,0,0.2);
+    margin: 0 2px;
+    padding: 0 2px;
+    height: 20px;
+    font: inherit;
+    font-size: 70%;
 }
 
-
 #characters input.initiative {
-  text-align: right;
-  width: 40px;
+    text-align: right;
+    width: 40px;
 }
 
 #characters input.name {
-  width: 180px;
+    width: 180px;
 }
 
 #characters input.chartype {
-  width: 40px;
-  font-size: 80%;
+    width: 40px;
+    font-size: 80%;
 }
 
 #fileupload {
-    font-size: 16px;
+    font-size: 12px;
 }
 
 #fileupload caption {
@@ -337,7 +391,8 @@ body.disconnected .noconnection {
 }
 
 #diskusage {
-    font-size: 14px;
+    font-size: 12px;
+    font-weight: bold;
 }
 
 #fileupload div.button {
@@ -349,6 +404,7 @@ body.disconnected .noconnection {
     border-radius: 4px;
     box-shadow: 1px 1px #888;
 }
+
 #fileupload div.button.confirm {
     background-color: #f85;
 }
@@ -358,24 +414,28 @@ body.disconnected .noconnection {
 }
 
 #playerlink {
-    margin: 5px;
+    margin: 10px 0 10px 0;
     font-size: 12px;
 }
 
 #pagetitle {
     width: 250px;
+    margin-top: 10px;
 }
+
 #pageselect {
     width: 1.4em;
     color: transparent;
-    padding: 2px
+    padding: 2px;
 }
+
 #pageselect option {
     color: black;
 }
+
 #deletepage {
     margin-top: 40px;
-    color: #c00; 
+    color: #c00;
     padding: 4px;
     font-size: 12px;
     border: 1px solid #800;
@@ -386,6 +446,7 @@ body.disconnected .noconnection {
     overflow: hidden;
     white-space: nowrap;
 }
+
 #deletepage:hover {
     width: 150px;
 }
