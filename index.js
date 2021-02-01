@@ -271,7 +271,9 @@ io.on('connection', function(socket) {
                         socket.emit('map', pages[pageid].map, pageid)
                     }
                 } catch (ex) {
-                    console.log('readmaps error', ex)
+                    if (ex.code != 'ENOENT') {
+                        console.log('readmaps error', ex)
+                    }
                 }
             })
             socket.on('clearzoom', (pageid) => {
@@ -325,7 +327,9 @@ io.on('connection', function(socket) {
                     }
                 }
             } catch (ex) {
-                console.log('readmaps error', ex)
+                if (ex.code != 'ENOENT') {
+                    console.log('readmaps error', ex)
+                }
             }
         }
         socket.on('marker', (marker, pageid) => {
@@ -469,14 +473,20 @@ function formatBytes(bytes, decimals = 2) {
 
 async function rmdir_recursive(path)
 {
-    for (const file of await fsp.readdir(path, { withFileTypes: true })) {
-        const fpath = path+'/'+file.name
-        console.log('Removing '+fpath)
-        if (file.isDirectory()) {
-            await rmdir_recursive(fpath)
-            await fsp.rmdir(fpath)
-        } else {
-            await fsp.unlink(fpath)
+    try {
+        for (const file of await fsp.readdir(path, { withFileTypes: true })) {
+            const fpath = path+'/'+file.name
+            console.log('Removing '+fpath)
+            if (file.isDirectory()) {
+                await rmdir_recursive(fpath)
+                await fsp.rmdir(fpath)
+            } else {
+                await fsp.unlink(fpath)
+            }
+        }
+    } catch (ex) {
+        if (ex.code != 'ENOENT') {
+            throw(ex)
         }
     }
 }
