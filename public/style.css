@@ -136,6 +136,10 @@ tr {
     cursor: pointer;
 }
 
+#markers .marker.removed {
+    display: none;
+}
+
 tr.pc {
     background: #CDE472;
     padding: 2px;
@@ -242,6 +246,26 @@ tr.npc10 {
     background: #CD0000;
     color:#ffffff;
     border: 2px solid #FFCC11;
+}
+
+#markers .marker.dead {
+    background-color: transparent;
+    background-image: url('deadmarker.png');
+    background-position: center;
+    background-repeat: no-repeat;
+    border: 0;
+    box-shadow: none;
+    z-index: 20;
+    padding: 24px; /* Make some extra room */
+    margin: -24px 0 0 -24px;
+    color: transparent;
+    cursor: default;
+}
+
+#markers .marker.pc.dead {
+    cursor: pointer;
+    color: black;
+    text-shadow: 1px 1px 3px #ccffcc, -1px -1px 3px #ccffcc, -1px 1px 3px #ccffcc, 1px -1px 3px #ccffcc;
 }
 
 table#area-effects {
@@ -449,4 +473,37 @@ body.disconnected .noconnection {
 
 #deletepage:hover {
     width: 150px;
+}
+
+.contextmenu {
+    background-color: rgba(200,200,200,0.5);
+    border: 1px solid #222222;
+    border-radius: 2px;
+    text-align: left;
+    padding: 0px;
+    text-shadow: 0px 0px 3px #ffffff;
+    font-weight: bold;
+    font-size: 15px;
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    z-index: 100;
+}
+
+.contextmenu .menuheader {
+    background-color: rgba(130,130,130,0.6);
+    margin: 3px 0px;
+    padding: 3px 3px 3px 3px;
+}
+
+.contextmenu .menuitem {
+    background-color: rgba(100,100,100,0.7);
+    margin: 3px 0px;
+    padding: 3px 20px 3px 20px;
+    cursor: pointer;
+}
+
+.contextmenu .menuitem:hover {
+    text-shadow: 0px 0px 3px #ffffff, 1px 1px 2px #cccccc;
+    background-color: rgba(150,150,150,0.8);
 }

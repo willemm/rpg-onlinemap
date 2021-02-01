@@ -70,6 +70,10 @@ function get_pages(pages)
 
         $('#deletepage').on('click', delete_page)
 
+        $('#markers').on('contextmenu', '.marker', show_marker_menu)
+        $('#markers').on('mousedown', '.markermenu', function(e) { e.stopPropagation() })
+        $('#markers').on('click', '.markermenu .menuitem', send_marker_menu)
+
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         socket.on('message', function(err) {
             alert(err)
@@ -231,13 +235,23 @@ function set_marker(marker, pageid)
     var markerdiv = $('#markers .marker[data-id="'+marker.id+'"]')
     if (!markerdiv.length) {
         markerdiv = $('<div data-page="'+pageid+'" data-id="'+marker.id+
-            '" data-charid="'+marker.charid+'" class="'+marker.cls+'">'+
-            marker.text+'</div>').appendTo('#markers')
+            '" data-charid="'+marker.charid+'" class="'+marker.cls+'"></div>').appendTo('#markers')
     }
+    markerdiv.attr('data-label', marker.text)
+    markerdiv.text(marker.text)
+    markerdiv.attr('class', marker.cls)
     var x = marker.imx * zoompos.w + zoompos.x - markerdiv.width()/2
     var y = marker.imy * zoompos.h + zoompos.y - markerdiv.height()/2
     markerdiv.css({left:x+'px',top:y+'px'})
-    markerdiv.text(marker.text)
+    var markerchar = $('#characters tr[data-id="'+marker.charid+'"] td.name')
+    if (markerchar.length) {
+        var mname = markerchar.text()
+        if (marker.text.match(/^[0-9]+$/)) {
+            mname = mname + ' ' + marker.text
+        }
+        mname = mname + ' ' + marker.cls
+        markerdiv.attr('title', mname)
+    }
 }
 
 function set_pagetitle(pagetitle, pageid) {
@@ -307,6 +321,7 @@ function load() {
     $('#characters').on('mousedown', function(e) { if (e.which == 1) return false })
     $('#characters').on('mousedown', 'tr', start_marker)
     $('#markers').on('mousedown', '.marker', drag_marker)
+
     set_aoe_styles()
     $('td.area-effects').on('click','div', add_aoe)
     $('#area-effects').on('click','tr.aoe td.aoe-close', close_aoe)
@@ -322,6 +337,57 @@ function load() {
     $('#pageselect').on('change', select_page)
 
     $('#fileupload input.mapnamenew').val('')
+}
+
+function hide_marker_menu(e)
+{
+    $(this).remove()
+}
+
+function send_marker_menu(e)
+{
+    var elem = $(this)
+    var menu = elem.closest('.markermenu')
+    var action = elem.attr('data-action')
+    var pageid = menu.attr('data-page')
+    var markerid = menu.attr('data-id')
+    var marker = $('#markers .marker[data-page="'+pageid+'"][data-id="'+markerid+'"]')
+    if (marker.length) {
+        var cls = marker.attr('class').replace(/(^| )dead( |$)/g, ' ').replace(/  */g,' ').trim()
+        if (action == 'remove') {
+            cls += ' removed'
+        } else if (action == 'kill') {
+            cls += ' dead'
+        }
+        socket.emit('marker', { id: markerid, cls: cls }, pageid)
+    }
+    menu.remove()
+}
+
+function show_marker_menu(e)
+{
+    if (adminonly) {
+        var elem = $(this)
+        var txt = elem.attr('data-label')
+        var charid = elem.attr('data-charid')
+        if (!charid) return
+        var chartr = $('#characters tr[data-id="'+charid+'"]')
+        var charname = chartr.find('.name').text()
+        if (txt.match(/^[0-9]+$/)) { charname += ' '+txt }
+        var dead = elem.hasClass('dead')
+        var marker_menu = $('<div class="contextmenu markermenu" '+
+            'data-id="'+elem.attr('data-id')+'" data-page="'+elem.attr('data-page')+'">'+
+            '<div class="menuheader">'+charname+'</div>'+
+            (dead ? '<div class="menuitem revivemarker" data-action="revive">Alive</div>'
+                  : '<div class="menuitem killmarker" data-action="kill">Dead</div>')+
+            '<div class="menuitem removemarker" data-action="remove">Remove</div>'+
+            '</div>').appendTo('#markers')
+        marker_menu.mouseleave(hide_marker_menu)
+        var x = e.pageX - 10
+        var y = e.pageY - 10
+        marker_menu.css({position: 'fixed', left: x+'px', top: y+'px'})
+        return false
+    }
 }
 
 function select_page(e)
@@ -774,7 +840,7 @@ function start_marker(e)
     var multi = false
 
     var ch = $(this)
-    var mid = ch.find('td:nth-child(2)').text().trim()
+    var mid = ch.find('td.name').text().trim()
     var cls = ['marker']
     var charid = ch.attr('data-id')
 
@@ -800,7 +866,7 @@ function start_marker(e)
             }
         }
         cls.push(ch.attr('class'))
-        marker = $('<div data-page="'+currentpageid+'" data-charid="'+charid+
+        marker = $('<div data-page="'+currentpageid+'" data-charid="'+charid+'" data-label="'+mid+
             '" data-id="'+markerid+'" class="'+cls.join(' ')+'">'+mid+'</div>').appendTo('#markers')
         drag_marker.apply(marker, [e])
     }
@@ -828,7 +894,7 @@ function drag_marker(e)
                 charid: marker.attr('data-charid'),
                 imx:    imx,
                 imy:    imy,
-                text:   marker.text(),
+                text:   marker.attr('data-label'),
                 player: true, // false to disable plebs to move them
                 cls:    marker.attr('class')
             }, marker.attr('data-page'))
@@ -845,7 +911,7 @@ function drag_marker(e)
             id:     marker.attr('data-id'),
             imx:    imx,
             imy:    imy,
-            text:   marker.text(),
+            text:   marker.attr('data-label'),
             player: marker.hasClass('pc'),
             cls:    marker.attr('class')
         }, marker.attr('data-page'))
