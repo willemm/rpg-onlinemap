@@ -880,14 +880,16 @@ function selector_pos(e, elem) {
 }
 
 function size_map(e) {
+    // Related to '#map' because that's where the zoombox overlay is
     var sp = selector_pos(e, $('#map'))
     $('#selector').show().css({left:sp.x+'px',top:sp.y+'px',width:sp.w+'px',height:sp.h+'px'})
     return false
 }
 
 function show_zoom(e) {
+    // Related to '#map img' because that's the image itself
     $(this).off('mousemove').off('mouseup')
-    var zoom = selector_pos(e, $('#map'))
+    var zoom = selector_pos(e, $('#map img'))
     var img = $('#map img')
     zoom.src = img.attr('src')
     zoom.imw = img.width()

@@ -385,21 +385,19 @@ async function do_mapuploaddata(socket, upmap, pageid)
     }
     try {
         const mappath = './public/maps/'+pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
-        console.log('Writing map file', mappath, upmap.data.length)
         let cursize = 0
         try {
             const fstat = await fsp.stat(mappath)
             cursize = fstat.size
         } catch (ex) {
-            if (ex.code != 'ENOENT') {
-                throw(ex)
-            }
+            if (ex.code != 'ENOENT') { throw(ex) }
         }
         if (cursize != upmap.pos) {
             console.log('mapupload size mismatch error: '+cursize+' <> '+upmap.pos)
             socket.emit('message', 'mapupload size mismatch error: '+cursize+' <> '+upmap.pos)
             return
         }
+        console.log('Writing map file', mappath, upmap.data.length, 'at', upmap.pos)
         await fsp.appendFile(mappath, upmap.data, 'Binary')
         diskusagebytes = diskusagebytes + upmap.data.length
         if (!upmap.finished) {
