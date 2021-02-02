@@ -16,9 +16,9 @@ const adminsecret = process.env.DUNGEONMASTER_TOKEN || 'test'
 const maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
 const maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 1024)
 const maxmarkers = process.env.MAX_MARKERS || 1000
-const maxareas =   process.env.MAX_AREAS   || 100
-const maxeffects = process.env.MAX_EFFECTS || 20
-const maxinitiative = process.env.MAX_INITIATIVE || 50
+const maxareas =   process.env.MAX_AREAS   || 500
+const maxeffects = process.env.MAX_EFFECTS || 50
+const maxinitiative = process.env.MAX_INITIATIVE || 100
 
 let pages = {}
 let pageid = 0
@@ -211,9 +211,12 @@ io.on('connection', function(socket) {
             if (pages[pageid].frozen) { return }
             if (!pages[pageid].markers[marker.id]) {
                 if (!admin) {
-                    // Kill the marker clientside
-                    socket.emit('marker', { id: marker.id, remove: true }, pageid)
-                    return
+                    // Allow grabbing player markers
+                    if (!marker.cls.match(/(^| )pc( |$)/)) {
+                        // Kill the marker clientside
+                        socket.emit('marker', { id: marker.id, remove: true }, pageid)
+                        return
+                    }
                 }
                 if (marker.charid) {
                     let mcount = 0
@@ -255,8 +258,11 @@ io.on('connection', function(socket) {
                     cls:    marker.cls,
                     player: marker.player
                 }
+            } else if (!admin && !pages[pageid].markers[marker.id].player) {
+                // Send original position back
+                socket.emit('marker', pages[pageid].markers[marker.id], pageid)
+                return
             }
-            if (!admin && !pages[pageid].markers[marker.id].player) { return }
             if (marker.imx != undefined) {
                 pages[pageid].markers[marker.id].imx = marker.imx
             }
