@@ -355,6 +355,7 @@ body.disconnected .noconnection {
     height: 20px;
     font: inherit;
     font-size: 70%;
+    color: inherit;
 }
 
 #characters input.initiative {
@@ -371,7 +372,7 @@ body.disconnected .noconnection {
     font-size: 80%;
 }
 #characters select.chartype {
-    width: 50px;
+    width: 60px;
     font-size: 70%;
     background-color: rgba(0,0,0,0.2);
     padding: 2px 0px;
