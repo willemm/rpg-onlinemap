@@ -297,7 +297,7 @@ function set_icon(mapicon, pageid)
     }
     if (!mapicondiv.length) {
         mapicondiv = $('<div title="'+mapicon.name+'" data-id="'+mapicon.id+
-            '" data-name="'+mapicon.name+
+            '" data-name="'+mapicon.name+'" data-angle="'+mapicon.angle+
             '" data-page="'+pageid+'" data-path="'+mapicon.path+'" class="mapicon">'+
             '<img src="icons/'+mapicon.path+'"></div>').appendTo('#markers')
     }
@@ -689,8 +689,8 @@ function new_maprow(e)
     if ($(this).val()) {
         var tr = $(this).closest('tr')
         tr.append('<td><label><div class="upload button">browse</div>'+
-            '<input name="mapimage" type="file" class="mapimage" value="Map" '+
-            'accept=".jpg,.png,.gif,image/*"></label></td>')
+            '<input name="mapimage" type="file" class="uploadfile" value="Map" '+
+            'accept=".jpeg,.jpg,.png,.gif,image/*"></label></td>')
         $(this).removeClass('mapnamenew').addClass('mapname')
         tr.removeClass('mapuploadnew')
         $(this).closest('tbody').append('<tr class="mapupload mapuploadnew">'+
@@ -711,7 +711,7 @@ function add_mapfile(map, pageid)
                               '<td><input class="active" type="radio" name="mapactive" '+(map.active?'checked':'')+'></td>'+
                               '<td class="mapname">'+map.name+'</td>'+
                               '<td><label><div class="upload button">browse</div>'+
-                              '<input name="mapimage" type="file" class="mapimage" value="Map" '+
+                              '<input name="mapimage" type="file" class="uploadfile" value="Map" '+
                               'accept=".jpg,.png,.gif,image/*"></label></td>'+
                               '<td class="removemap"><div class="remove button">X</div></td>'+
                            '</tr>').insertBefore('#fileupload tr.mapuploadnew')
@@ -1072,6 +1072,7 @@ function drag_marker(e)
     var marker = $(this)
     var currentX = e.pageX
     var currentY = e.pageY
+    marker.addClass('dragging')
     $(window).on('mousemove', function(e) {
         if ((e.pageX == currentX) && (e.pageY == currentY)) { return }
         currentX = undefined
@@ -1096,6 +1097,7 @@ function drag_marker(e)
         }
         return false
     }).on('mouseup', function(e) {
+        marker.removeClass('dragging')
         if ((e.pageX != currentX) || (e.pageY != currentY)) {
             var x = (e.pageX-marker.width()/2)
             var y = (e.pageY-marker.height()/2)
@@ -1124,6 +1126,7 @@ function drag_mapicon(e)
     var mapicon = $(this)
     var currentX = e.pageX
     var currentY = e.pageY
+    mapicon.addClass('dragging')
     $(window).on('mousemove', function(e) {
         if ((e.pageX == currentX) && (e.pageY == currentY)) { return }
         currentX = undefined
@@ -1151,6 +1154,7 @@ function drag_mapicon(e)
                     player: false, // true to enable plebs to move them
             }, mapicon.attr('data-page'))
         }
+        mapicon.removeClass('dragging')
         $(window).off('mousemove').off('mouseup')
         return false
     })
