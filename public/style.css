@@ -146,42 +146,49 @@ option.pc,
 tr.pc,
 #markers .marker.pc {
     background-color: #CDE472;
+    color: #000000;
 }
 
 option.npc1,
 tr.npc1,
 #markers .marker.npc1 {
     background-color: #FFFFAA;
+    color: #000000;
 }
 
 option.npc2,
 tr.npc2, 
 #markers .marker.npc2 {
     background-color: #f9be49;
+    color: #000000;
 }
 
 option.npc3,
 tr.npc3,
 #markers .marker.npc3 {
     background-color: #aef8fb;
+    color: #000000;
 }
 
 option.npc4,
 tr.npc4,
 #markers .marker.npc4 {
     background-color: #e7abe2;
+    color: #000000;
 }
 
 option.npc5,
 tr.npc5,
 #markers .marker.npc5 {
     background-color: #fa8381;
+    color: #000000;
 }
 
 option.npc6,
 tr.npc6,
 #markers .marker.npc6 {
     background-color: #78fac3;
+    color: #000000;
 }
 
 option.npc7,
@@ -213,8 +220,14 @@ tr.npc10,
     border: 2px solid #FFCC11;
 }
 
+option.deleteme {
+    background-color: #eeddaa;
+    color: #cc0000;
+}
+
 option.empty,
-#characters tr.empty {
+#characters tr.empty,
+#markers .empty {
     height: 20px;
     background-color: #ffffff;
 }

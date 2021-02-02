@@ -380,7 +380,7 @@ function load() {
             var classarray = []
             for (var i = 0; i < rules.length; i++) {
                 var rule = rules[i]
-                var m = rule.selectorText.match(/^option\.([A-Za-z0-9_-]+)(,|$)/)
+                var m = rule.selectorText.match(/^option\.([A-Za-z0-9_-]+),.*#markers/)
                 if (m) {
                     classarray.push('<option class="'+m[1]+'" value="'+m[1]+'">'+m[1]+'</option>')
                 }
