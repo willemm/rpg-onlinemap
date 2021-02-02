@@ -12,9 +12,9 @@ http.listen(80, function() {
 })
 
 const maxpages = process.env.MAX_SESSIONS || 10
-const adminsecret = process.env.DUNGEONMASTER_TOKEN || 'test'
+const adminsecrets = (process.env.DUNGEONMASTER_TOKEN || 'test').split(/[, ]+/)
 const maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
-const maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 1024)
+const maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 256)
 const maxmarkers = process.env.MAX_MARKERS || 1000
 const maxareas =   process.env.MAX_AREAS   || 500
 const maxeffects = process.env.MAX_EFFECTS || 50
@@ -50,6 +50,7 @@ for (const pagefile of fs.readdirSync('./pages')) {
             const pageid = m[1]
             let newpage = require('./pages/'+pagefile)
             newpage.id = pageid
+            if (!newpage.owner) { newpage.owner = 'default' }
             pages[pageid] = newpage
         }
     } catch (e) {
@@ -60,13 +61,18 @@ for (const pagefile of fs.readdirSync('./pages')) {
 io.on('connection', function(socket) {
     console.log('Connection from '+(socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address)+' id='+socket.id)
 
-    let admin = false
+    let admin = null
 
     socket.on('join', (secret) => {
         console.log('join with token '+secret)
-        if (secret == adminsecret) {
+        if (adminsecrets.includes(secret)) {
             check_disk()
-            admin = true
+            const m = secret.match(/^(.+?)-(.*)$/)
+            if (m) {
+                admin = m[1]
+            } else {
+                admin = 'default'
+            }
             console.log(socket.id+'  Admin connection')
             socket.on('createpage', (pageid) => {
                 if (pages[pageid]) {
@@ -81,6 +87,7 @@ io.on('connection', function(socket) {
                 let token = Math.round(Math.pow(36,10)*Math.random()).toString(36)
                 pages[pageid] = {
                     id:         pageid,
+                    owner:      admin,
                     token:      token,
                     title:      '',
                     active:     false,
@@ -91,19 +98,19 @@ io.on('connection', function(socket) {
                     map:        null
                 }
                 socket.emit('page', pages[pageid], pageid)
-                socket.emit('pages', pages)
+                socket.emit('pages', Object.values(pages).filter(p => p.owner == admin))
                 save_pages()
             })
             socket.on('deletepage', (pageid) => {
-                if (!pages[pageid]) { return }
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 if (pages[pageid].frozen) {
                     socket.emit('message', 'Page is frozen')
                     return
                 }
-                do_deletepage(socket, pageid)
+                do_deletepage(socket, pageid, admin)
             })
             socket.on('zoom', (zoom, pageid) => {
-                if (!pages[pageid]) { return }
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 if (pages[pageid].frozen) { return }
                 pages[pageid].zoom = {
                   src: zoom.src,
@@ -118,19 +125,33 @@ io.on('connection', function(socket) {
                 save_pages()
             })
             socket.on('mapupload', (upmap, pageid) => {
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
+                if (pages[pageid].frozen) {
+                    socket.emit('message', 'Page is frozen')
+                    return
+                }
                 do_mapupload(socket, upmap, pageid)
             })
             socket.on('mapuploaddata', (upmap, pageid) => {
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
+                if (pages[pageid].frozen) { return }
                 do_mapuploaddata(socket, upmap, pageid)
             })
             socket.on('mapremove', (mapname, pageid) => {
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
+                if (pages[pageid].frozen) { return }
                 do_mapremove(socket, mapname, pageid)
             })
             socket.on('map', (map, pageid) => {
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
+                if (pages[pageid].frozen) {
+                    io.emit('map', pages[pageid].map, pageid)
+                    return
+                }
                 do_map(socket, map, pageid)
             })
             socket.on('initiative', (initiative, pageid) => {
-                if (!pages[pageid]) { return }
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 if (pages[pageid].frozen) {
                     socket.emit('initiative', pages[pageid].initiative, pageid)
                     socket.emit('message', 'Page is frozen')
@@ -139,7 +160,8 @@ io.on('connection', function(socket) {
 
                 if (initiative.order) {
                     if (initiative.order.length > maxinitiative) {
-                        socket.emit('message', 'Initiative list too large: '+initiative.order.length+' > '+maxinitiative)
+                        socket.emit('message', 'Initiative list too large: '+
+                            initiative.order.length+' > '+maxinitiative)
                         return
                     }
                     let order = []
@@ -156,10 +178,11 @@ io.on('connection', function(socket) {
                 }
             })
             socket.on('selectpage', (pageid) => {
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 do_selectpage(socket, pageid)
             })
             socket.on('clearzoom', (pageid) => {
-                if (!pages[pageid]) { return }
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 if (pages[pageid].frozen) { return }
                 pages[pageid].markers = {}
                 pages[pageid].areas = {}
@@ -175,17 +198,17 @@ io.on('connection', function(socket) {
                 io.emit('zoom', pages[pageid].zoom, pageid)
             })
             socket.on('pagetitle', (pagetitle, pageid) => {
-                if (!pages[pageid]) { return }
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 if (pages[pageid].frozen) { return }
                 pages[pageid].title = pagetitle
                 io.emit('pagetitle', pagetitle, pageid)
             })
             socket.on('freeze', (frozen, pageid) => {
-                if (!pages[pageid]) { return }
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 pages[pageid].frozen = frozen
                 io.emit('freeze', frozen, pageid)
             })
-            socket.emit('pages', pages)
+            socket.emit('pages', Object.values(pages).filter(p => p.owner == admin))
             socket.emit('diskusage', diskusage)
             save_pages(true)
         } else {
@@ -210,7 +233,7 @@ io.on('connection', function(socket) {
             if (!pages[pageid]) { return }
             if (pages[pageid].frozen) { return }
             if (!pages[pageid].markers[marker.id]) {
-                if (!admin) {
+                if (pages[pageid].owner != admin) {
                     // Allow grabbing player markers
                     if (!marker.cls.match(/(^| )pc( |$)/)) {
                         // Kill the marker clientside
@@ -258,7 +281,7 @@ io.on('connection', function(socket) {
                     cls:    marker.cls,
                     player: marker.player
                 }
-            } else if (!admin && !pages[pageid].markers[marker.id].player) {
+            } else if ((pages[pageid].owner != admin) && !pages[pageid].markers[marker.id].player) {
                 // Send original position back
                 socket.emit('marker', pages[pageid].markers[marker.id], pageid)
                 return
@@ -272,7 +295,7 @@ io.on('connection', function(socket) {
             if (marker.text != undefined) {
                 pages[pageid].markers[marker.id].text = marker.text
             }
-            if (admin && marker.cls != undefined) {
+            if ((pages[pageid].owner == admin) && (marker.cls != undefined)) {
                 pages[pageid].markers[marker.id].cls = marker.cls
             }
             io.emit('marker', pages[pageid].markers[marker.id], pageid)
@@ -296,7 +319,7 @@ io.on('connection', function(socket) {
                     player: area.player
                 }
             }
-            if (!admin && !pages[pageid].areas[area.id].player) { return }
+            if ((pages[pageid].owner != admin) && !pages[pageid].areas[area.id].player) { return }
             pages[pageid].areas[area.id].imx = area.imx
             pages[pageid].areas[area.id].imy = area.imy
             pages[pageid].areas[area.id].imw = area.imw
@@ -402,11 +425,6 @@ function checkmap(map)
 
 async function do_mapupload(socket, upmap, pageid)
 {
-    if (!pages[pageid]) { return }
-    if (pages[pageid].frozen) {
-        socket.emit('message', 'Page is frozen')
-        return
-    }
     if (!checkmap(upmap)) { return }
     if (upmap.filesize > maxmapsize) {
         console.log('mapupload', 'file too large', upmap.data.length)
@@ -439,8 +457,6 @@ async function do_mapupload(socket, upmap, pageid)
 
 async function do_mapuploaddata(socket, upmap, pageid)
 {
-    if (!pages[pageid]) { return }
-    if (pages[pageid].frozen) { return }
     if (!checkmap(upmap)) { return }
     if ((diskusagebytes + upmap.data.length) > maxdiskuse) {
         console.log('mapupload', 'disk too full', diskusage, upmap.data.length)
@@ -504,8 +520,6 @@ async function do_mapuploaddata(socket, upmap, pageid)
 
 async function do_mapremove(socket, mapname, pageid)
 {
-    if (!pages[pageid]) { return }
-    if (pages[pageid].frozen) { return }
     try {
         let done = false
         for (const file of await fsp.readdir('./public/maps/'+pageid)) {
@@ -534,11 +548,6 @@ async function do_mapremove(socket, mapname, pageid)
 
 async function do_map(socket, map, pageid)
 {
-    if (!pages[pageid]) { return }
-    if (pages[pageid].frozen) {
-        io.emit('map', pages[pageid].map, pageid)
-        return
-    }
     try {
         for (const file of await fsp.readdir('./public/maps/'+pageid)) {
             const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
@@ -563,7 +572,6 @@ async function do_map(socket, map, pageid)
 
 async function do_selectpage(socket, pageid)
 {
-    if (!pages[pageid]) { return }
     socket.emit('page', pages[pageid], pageid)
     try {
         for (const file of await fsp.readdir('./public/maps/'+pageid)) {

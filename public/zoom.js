@@ -12,8 +12,8 @@ setup_socket(socket)
 
 function setup_socket(socket)
 {
-    var token = window.location.hash.replace(/^#/,'')
     socket.on('connect', function() {
+        var token = window.location.hash.replace(/^#/,'')
         socket.emit('join', token)
         $(document.body).removeClass('disconnected connecting connected').addClass('connecting')
     })
@@ -92,7 +92,7 @@ function get_pages(pages)
         socket.on('mapuploaddata', upload_map_data)
     }
     var options = []
-    for (p in pages) {
+    for (var p = 0; p < pages.length; p++) {
         options.push('<option data-title="'+pages[p].title+'" value="'+pages[p].id+'">'+
             pages[p].title+'</option>')
     }
@@ -212,6 +212,9 @@ function set_initiative(initiative, pageid)
         html.push('</tbody>')
         $('#characters').html(html.join(''))
         $('#ini-title .editbutton').val('Edit')
+    } else {
+        $('#characters').html('')
+        $('#ini-title .editbutton').val('')
     }
 }
 
@@ -330,13 +333,14 @@ function show_page(page)
             set_effect(page.effects[ar], page.id)
         }
     }
-    if (page.initiative) {
-        set_initiative(page.initiative, page.id)
-    }
+    set_initiative(page.initiative, page.id)
+    var playerlink = window.location.origin+'#'+page.token
     if (page.token) {
-        var playerlink = window.location.origin+'#'+page.token
         $('#playerlink a').text(playerlink)
         $('#playerlink a').attr('href', playerlink)
+    } else {
+        $('#playerlink a').text('')
+        $('#playerlink a').attr('href', '')
     }
     if (page.map) {
         set_map(page.map, page.id)
@@ -354,6 +358,14 @@ function set_map(map, pageid)
 }
 
 function load() {
+    $(window).on('hashchange', function(e) {
+        socket.close()
+        currentpageid = null
+        $('#pagetitle').attr('placeholder', 'Select session')
+        $('.editonly').hide()
+        show_page({})
+        socket.open()
+    })
     $('#map img').on('mousedown', select_map)
     $('#zoomclose').click(hide_zoom)
     $('#zoomclear').click(clear_zoom)
