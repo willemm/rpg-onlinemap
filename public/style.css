@@ -101,6 +101,7 @@ table {
 
 #zoom img {
     position: absolute;
+    display: block;
 }
 
 #zoomclose {
@@ -250,7 +251,7 @@ option.empty,
     background-repeat: no-repeat;
     border: 0;
     box-shadow: none;
-    z-index: 20;
+    z-index: 28;
     /* Enlarge from 30x30 to 64x64 (allow for 2px border) */
     padding: 17px;
     margin: -15px 0 0 -15px;
@@ -577,3 +578,48 @@ body.frozen #ini-title::before {
 body.frozen #initiative {
     background-image: repeating-linear-gradient(40deg, #ffffff 0px, #44ddff 12px, #ffffff 15px, #ffffff 50px);
 }
+
+#mapicons {
+    display: grid;
+    grid-template-columns: repeat(6, 50px);
+}
+
+#mapicons .mapicon img {
+    max-width: 40px;
+    max-height: 40px;
+    margin: auto;
+    padding: 0;
+    display: block;
+}
+
+#mapicons .tile {
+    border: 1px solid rgba(0,0,0,0.5);
+    background: repeating-linear-gradient(135deg, #ffffff 0.5px, #aaaaaa 2px, #ffffff 3.5px, #ffffff 7px);
+    box-shadow: 1px 1px 2px rgba(0,0,120,0.5);
+    padding: 2px;
+    margin: 2px;
+    border-radius: 5px;
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    text-align: center;
+    cursor: pointer;
+}
+
+#mapicons #newmapicon.tile {
+    background: #dddddd;
+}
+
+#markers .mapicon {
+    position: absolute;
+    z-index: 25;
+    cursor: default;
+}
+/* Make the topleft of the div be the center of the image */
+#markers .mapicon img {
+    margin-left: -50%;
+    margin-top: -50%;
+    display: block;
+    transform-origin: 50% 50%;
+}
+

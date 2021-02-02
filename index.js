@@ -16,6 +16,7 @@ const adminsecrets = (process.env.DUNGEONMASTER_TOKEN || 'test').split(/[, ]+/)
 const maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
 const maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 256)
 const maxmarkers = process.env.MAX_MARKERS || 1000
+const maxicons =   process.env.MAX_ICONS || 1000
 const maxareas =   process.env.MAX_AREAS   || 500
 const maxeffects = process.env.MAX_EFFECTS || 50
 const maxinitiative = process.env.MAX_INITIATIVE || 100
@@ -50,7 +51,13 @@ for (const pagefile of fs.readdirSync('./pages')) {
             const pageid = m[1]
             let newpage = require('./pages/'+pagefile)
             newpage.id = pageid
-            if (!newpage.owner) { newpage.owner = 'default' }
+            // Backwards compatibility
+            if (!newpage.owner)      { newpage.owner = 'default' }
+            if (!newpage.icons)      { newpage.icons = {} }
+            if (!newpage.areas)      { newpage.areas = {} }
+            if (!newpage.effects)    { newpage.effects = {} }
+            if (!newpage.markers)    { newpage.markers = {} }
+            if (!newpage.initiative) { newpage.initiative = {} }
             pages[pageid] = newpage
         }
     } catch (e) {
@@ -84,7 +91,7 @@ io.on('connection', function(socket) {
                     socket.emit('message', 'Can\'t create page: Too many pages')
                     return
                 }
-                let token = Math.round(Math.pow(36,10)*Math.random()).toString(36)
+                let token = Math.floor(Math.pow(36,10)*Math.random()).toString(36)
                 pages[pageid] = {
                     id:         pageid,
                     owner:      admin,
@@ -95,6 +102,7 @@ io.on('connection', function(socket) {
                     areas:      {},
                     effects:    {},
                     initiative: [],
+                    icons:      {},
                     map:        null
                 }
                 socket.emit('page', pages[pageid], pageid)
@@ -187,6 +195,7 @@ io.on('connection', function(socket) {
                 pages[pageid].markers = {}
                 pages[pageid].areas = {}
                 pages[pageid].effects = {}
+                pages[pageid].icons = {}
                 pages[pageid].zoom = {
                     x: 0, y: 0, h: 0, w: 0
                 }
@@ -210,6 +219,7 @@ io.on('connection', function(socket) {
             })
             socket.emit('pages', Object.values(pages).filter(p => p.owner == admin))
             socket.emit('diskusage', diskusage)
+            do_sendicons(socket, admin)
             save_pages(true)
         } else {
             let pageid = null
@@ -301,6 +311,53 @@ io.on('connection', function(socket) {
             io.emit('marker', pages[pageid].markers[marker.id], pageid)
             save_pages()
         })
+        socket.on('icon', (icon, pageid) => {
+            if (!pages[pageid]) { return }
+            if (pages[pageid].frozen) { return }
+            if (!pages[pageid].icons[icon.id]) {
+                if (pages[pageid].owner != admin) {
+                    return
+                }
+                // Check list size
+                let keys = Object.keys(pages[pageid].icons)
+                if (keys.length >= maxicons) {
+                    keys.sort()
+                    console.log('Too many icons on '+pageid+', deleting '+keys[0])
+                    delete pages[pageid].icons[keys[0]]
+                }
+                pages[pageid].icons[icon.id] = {
+                    id:     icon.id,
+                    path:   icon.path,
+                    name:   icon.name,
+                    angle:  icon.angle,
+                    player: icon.player
+                }
+            } else if ((pages[pageid].owner != admin) && !pages[pageid].icons[icon.id].player) {
+                // Send original position back
+                socket.emit('icon', pages[pageid].icons[icon.id], pageid)
+                return
+            }
+            if ((pages[pageid].owner == admin) && (icon.remove)) {
+                delete pages[pageid].icons[icon.id]
+                io.emit('icon', { id: icon.id, remove: true }, pageid)
+                save_pages()
+                return
+            }
+            if (icon.imx != undefined) {
+                pages[pageid].icons[icon.id].imx = icon.imx
+            }
+            if (icon.imy != undefined) {
+                pages[pageid].icons[icon.id].imy = icon.imy
+            }
+            if ((pages[pageid].owner == admin) && (icon.path != undefined)) {
+                pages[pageid].icons[icon.id].path = icon.path
+            }
+            if ((pages[pageid].owner == admin) && (icon.angle != undefined)) {
+                pages[pageid].icons[icon.id].angle = icon.angle
+            }
+            io.emit('icon', pages[pageid].icons[icon.id], pageid)
+            save_pages()
+        })
         socket.on('area', (area, pageid) => {
             if (!pages[pageid]) { return }
             if (pages[pageid].frozen) { return }
@@ -369,6 +426,9 @@ io.on('connection', function(socket) {
             for (const i in pages[pageid].markers) {
                 socket.emit('marker', pages[pageid].markers[i], pageid)
             }
+            for (const i in pages[pageid].icons) {
+                socket.emit('icon', pages[pageid].icons[i], pageid)
+            }
             for (const i in pages[pageid].effects) {
                 socket.emit('effect', pages[pageid].effects[i], pageid)
             }
@@ -386,6 +446,9 @@ io.on('connection', function(socket) {
         save_pages()
     })
 })
+
+
+// async fire-and-forget functions
 
 async function do_deletepage(socket, pageid)
 {
@@ -592,19 +655,29 @@ async function do_selectpage(socket, pageid)
     }
 }
 
-function save_page_timeout()
+
+async function do_sendicons(socket, admin)
 {
-    savetimeout = 0
-    save_pages()
+    try {
+        for (const file of await fsp.readdir('./public/icons/'+admin)) {
+            const m = file.match(/^(.*?)\.(jpeg|jpg|gif|png)$/i)
+            if (m) {
+                const iconname = m[1]
+                const iconpath = admin+'/'+file
+                socket.emit('iconfile', { name: iconname, path: iconpath })
+            }
+        }
+    } catch (ex) {
+        if (ex.code != 'ENOENT') {
+            console.log('readmaps error', ex)
+        }
+    }
 }
 
-function check_disk_timeout()
-{
-    checktimeout = 0
-    check_disk()
-}
+// Utility functions
 
-function formatBytes(bytes, decimals = 2) {
+function formatBytes(bytes, decimals = 2)
+{
     if (bytes === 0) return '0 Bytes';
 
     const k = 1024;
@@ -634,6 +707,18 @@ async function rmdir_recursive(path)
             throw(ex)
         }
     }
+}
+
+function save_page_timeout()
+{
+    savetimeout = 0
+    save_pages()
+}
+
+function check_disk_timeout()
+{
+    checktimeout = 0
+    check_disk()
 }
 
 // Check the size of a directory
