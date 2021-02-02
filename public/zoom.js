@@ -273,7 +273,7 @@ function set_marker(marker, pageid)
         if (marker.text.match(/^[0-9]+$/)) {
             mname = mname + ' ' + marker.text
         }
-        mname = mname + ' ' + marker.cls
+        // mname = mname + ' ' + marker.cls
         markerdiv.attr('title', mname)
     }
 }
