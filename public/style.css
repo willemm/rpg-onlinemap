@@ -3,7 +3,8 @@ body {
     font-family: sans-serif;
     background-image: url("bg01.jpg");
     text-align: center;
-    /* overflow: hidden; */
+    padding: 0;
+    margin: 0;
 }
 
 table {
@@ -12,27 +13,37 @@ table {
 }
 
 #map {
-    /*width: 1250px; */
-    height: calc(100vh - 20px);
+    height: calc(100vh - 40px);
+    /* 300px (ini) + 40px (ini margin) + 20px (ini padding) + 20px (no idea) */
+    width: calc(100vw - 380px);
     overflow: auto;
-    margin: auto;
-    position: relative;
-    left: 30px;
+    margin: 0;
+    padding: 0;
+    /* Make selection box work */
+    position: absolute;
+    left: 360px;
+    top: 20px;
 }
 
 #map img {
     display: block;
     max-width: 100%;
     max-height: 100%;
+    margin: auto;
 }
 
 #initiative {
     background: white;
     width: 300px;
     padding: 10px;
-    float: left;
-    position: relative;
+    position: absolute;
     left: 20px;
+    top: 20px;
+    /* float: left;
+    margin-left: 20px;
+    margin-right: 20px;
+     */
+    margin-top: 0;
     font-size: 14px;
     text-align: left;
 }
@@ -69,10 +80,10 @@ table {
 
 #zoompopup {
     position: absolute;
-    left: 500px;
-    top: 20px;
-    right: 150px;
-    bottom: 20px;
+    left: 400px;
+    top: 30px;
+    right: 90px;
+    bottom: 30px;
     display: none;
 }
 
@@ -240,8 +251,9 @@ option.empty,
     border: 0;
     box-shadow: none;
     z-index: 20;
-    padding: 24px; /* Make some extra room */
-    margin: -24px 0 0 -24px;
+    /* Enlarge from 30x30 to 64x64 (allow for 2px border) */
+    padding: 17px;
+    margin: -15px 0 0 -15px;
     color: transparent;
     cursor: default;
 }

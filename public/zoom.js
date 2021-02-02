@@ -306,6 +306,11 @@ function show_page(page)
     set_pagetitle(page.title || '', page.id)
     set_freeze(page.frozen, page.id)
     if (page.zoom) {
+        $('#selector').hide()
+        $('#zoompopup').hide()
+        $('#markers').html('')
+        $('#zoomoverlay div.aoe').remove()
+        $('#area-effects tr.aoe').remove()
         set_zoom(page.zoom)
     } else {
         hide_zoom()
