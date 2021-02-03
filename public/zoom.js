@@ -516,11 +516,11 @@ function show_mapicon_menu(e)
         var menu = $('<div class="contextmenu mapiconmenu" '+
             'data-id="'+elem.attr('data-id')+'" data-page="'+elem.attr('data-page')+'">'+
             '<div class="menuheader">'+elem.attr('data-name')+'</div>'+
-            '<div class="menuitem rotateicon" data-action="rotate">Rotate</div>'+
             (elem.hasClass('locked') ? 
                 '<div class="menuitem unlockicon" data-action="unlock">Unlock</div>' :
-                '<div class="menuitem lockicon" data-action="lock">Lock</div>' )+
-            '<div class="menuitem removeicon" data-action="remove">Remove</div>'+
+                '<div class="menuitem lockicon" data-action="lock">Lock</div>'+
+                '<div class="menuitem rotateicon" data-action="rotate">Rotate</div>'+
+                '<div class="menuitem removeicon" data-action="remove">Remove</div>')+
             '</div>').appendTo('#markers')
         menu.mouseleave(hide_marker_menu)
         var x = e.pageX - 10
