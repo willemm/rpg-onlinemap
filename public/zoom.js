@@ -51,8 +51,9 @@ function setup_socket(socket)
     })
     socket.on('map', set_map)
     socket.on('mapfile', add_mapfile)
-    socket.on('iconfile', add_iconfile)
     socket.on('mapremove', remove_mapfile)
+    socket.on('iconfile', add_iconfile)
+    socket.on('iconremove', remove_iconfile)
     socket.on('pagetitle', set_pagetitle)
     socket.on('diskusage', function(diskusage) {
         $('#diskusage').text(diskusage)
@@ -69,7 +70,8 @@ function get_pages(pages)
         adminonly = true
         $('.adminonly').show()
 
-        $('#fileupload').on('change','input[type="file"].mapimage', upload_map)
+        $('#fileupload').on('change','input[type="file"].uploadfile', upload_map)
+        $('#newmapicon').on('change','input[type="file"].uploadfile', upload_icon)
 
         $('#fileupload').on('input','input.mapnamenew', new_maprow)
         $('#fileupload').on('change', 'input.active', select_mapfile)
@@ -90,11 +92,15 @@ function get_pages(pages)
         $('#markers').on('click', '.mapiconmenu .menuitem', send_mapicon_menu)
         $('#markers').on('mousedown', '.mapiconmenu .rotateicon', rotate_mapicon)
 
+        $('#mapicons').on('contextmenu', '.mapicon', show_icon_menu)
+        $('#mapicons').on('click', '.iconmenu .menuitem', send_icon_menu)
+
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         socket.on('message', function(err) {
             alert(err)
         })
         socket.on('mapuploaddata', upload_map_data)
+        socket.on('iconuploaddata', upload_icon_data)
     }
     var options = []
     for (var p = 0; p < pages.length; p++) {
@@ -518,6 +524,34 @@ function show_mapicon_menu(e)
     }
 }
 
+function show_icon_menu(e)
+{
+    if (adminonly) {
+        var elem = $(this)
+        var menu = $('<div class="contextmenu iconmenu" '+
+            'data-name="'+elem.attr('data-name')+'">'+
+            '<div class="menuheader">'+elem.attr('data-name')+'</div>'+
+            '<div class="menuitem removeicon" data-action="remove">Remove</div>'+
+            '</div>').appendTo('#mapicons')
+        menu.mouseleave(hide_marker_menu)
+        var x = e.pageX - 10
+        var y = e.pageY - 10
+        menu.css({position: 'fixed', left: x+'px', top: y+'px'})
+        return false
+    }
+}
+
+function send_icon_menu(e)
+{
+    var elem = $(this)
+    var menu = elem.closest('.iconmenu')
+    var action = elem.attr('data-action')
+    if (action == 'remove') {
+        socket.emit('iconremove', { name: menu.attr('data-name') })
+    }
+    menu.remove()
+}
+
 function send_mapicon_menu(e)
 {
     var elem = $(this)
@@ -675,7 +709,7 @@ function confirm_remove_map(e)
 function remove_map(e)
 {
     var tr = $(this).closest('tr')
-    socket.emit('mapremove', tr.attr('data-name'), tr.attr('data-page'))
+    socket.emit('mapremove', { name: tr.attr('data-name') }, tr.attr('data-page'))
 }
 
 function select_mapfile(e)
@@ -740,6 +774,11 @@ function remove_mapfile(map, pageid)
     $('#fileupload tr.mapupload[data-page="'+pageid+'"][data-name="'+map.name+'"]').remove()
 }
 
+function remove_iconfile(icon)
+{
+    $('#mapicons .mapicon[data-name="'+icon.name+'"]').remove()
+}
+
 var uploads = {}
 
 function upload_map_data(datareq, pageid)
@@ -792,7 +831,7 @@ function upload_map(e)
     var filetr = fileinp.closest('tr')
     var file = this.files[0]
     if (file.size > 10000000) {
-        // alert('File '+file.name+' too big: '+file.size)
+        alert('File '+file.name+' too big: '+file.size)
         filetr.addClass('failed')
         return
     }
@@ -815,7 +854,70 @@ function upload_map(e)
         file: file
     }
     socket.emit('mapupload', { id: map_id, name: filename, filesize: file.size, fileext: fileext }, filepage)
-    // reader.readAsArrayBuffer(file.slice(100*1024,200*1024))
+}
+
+function upload_icon_data(datareq)
+{
+    var upl = uploads[datareq.id]
+    if (!upl) {
+        console.log('Error: Requested unkown icon data', datareq)
+        return
+    }
+    var endpos = datareq.pos + (100*1024)
+    var iconupl = $('#newmapicon')
+    if (endpos >= upl.file.size) {
+        upl.reader.onload = function(e) {
+            var data = e.target.result
+            socket.emit('iconuploaddata', {
+                id: datareq.id,
+                name: datareq.name,
+                fileext: datareq.fileext,
+                data: data,
+                pos: datareq.pos,
+                finished: true
+            } )
+            iconupl.removeClass('uploading')
+            iconupl.find('div.upload.button').text('Up load')
+        }
+        upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos))
+    } else {
+        upl.reader.onload = function(e) {
+            var data = e.target.result
+            socket.emit('iconuploaddata', {
+                id: datareq.id,
+                name: datareq.name,
+                fileext: datareq.fileext,
+                data: data,
+                pos: datareq.pos,
+                finished: false
+            })
+        }
+        var perc = Math.round(100*(datareq.pos / upl.file.size))
+        iconupl.find('div.upload.button').text(perc+'%')
+        upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos, endpos))
+    }
+}
+
+function upload_icon(e)
+{
+    var fileinp = $(this)
+    var iconupl = $('#newmapicon')
+    var file = this.files[0]
+    if (file.size > 1000000) {
+        alert('File '+file.name+' too big: '+file.size)
+        iconupl.addClass('failed')
+        return
+    }
+    var filename = file.name.replace(/\..*$/, '')
+    var fileext  = file.name.replace(/^.*\./,'')
+    var reader = new FileReader()
+    iconupl.removeClass('failed').addClass('uploading')
+    var icon_id = get_uid()
+    uploads[icon_id] = {
+        reader: reader,
+        file: file
+    }
+    socket.emit('iconupload', { id: icon_id, name: filename, filesize: file.size, fileext: fileext })
 }
 
 function set_aoe_styles()

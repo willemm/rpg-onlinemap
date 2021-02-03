@@ -13,8 +13,9 @@ http.listen(80, function() {
 
 const maxpages = process.env.MAX_SESSIONS || 10
 const adminsecrets = (process.env.DUNGEONMASTER_TOKEN || 'test').split(/[, ]+/)
-const maxmapsize = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
-const maxdiskuse = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 256)
+const maxmapsize  = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
+const maxiconsize = 1024*1024* (parseInt(process.env.MAX_ICONSIZE_MB) || 1)
+const maxdiskuse  = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 256)
 const maxmarkers = process.env.MAX_MARKERS || 1000
 const maxicons =   process.env.MAX_ICONS || 1000
 const maxareas =   process.env.MAX_AREAS   || 500
@@ -145,10 +146,19 @@ io.on('connection', function(socket) {
                 if (pages[pageid].frozen) { return }
                 do_mapuploaddata(socket, upmap, pageid)
             })
-            socket.on('mapremove', (mapname, pageid) => {
+            socket.on('mapremove', (map, pageid) => {
                 if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 if (pages[pageid].frozen) { return }
-                do_mapremove(socket, mapname, pageid)
+                do_mapremove(socket, map, pageid)
+            })
+            socket.on('iconupload', (upicon) => {
+                do_iconupload(socket, upicon, admin)
+            })
+            socket.on('iconuploaddata', (upicon) => {
+                do_iconuploaddata(socket, upicon, admin)
+            })
+            socket.on('iconremove', (icon) => {
+                do_iconremove(socket, icon, admin)
             })
             socket.on('map', (map, pageid) => {
                 if (!pages[pageid] || pages[pageid].owner != admin) { return }
@@ -466,21 +476,21 @@ async function do_deletepage(socket, pageid)
     }
 }
 
-function checkmap(map)
+function checkfilename(upfile)
 {
-    if (map.name.length > 50 || map.name.match(/[^A-Za-z0-9._ -]/)) {
-        console.log('mapupload', 'illegal filename', map.name)
-        socket.emit('message', 'illegal filename: '+map.name)
+    if (upfile.name.length > 50 || upfile.name.match(/[^A-Za-z0-9._ -]/)) {
+        console.log('upload', 'illegal filename', upfile.name)
+        socket.emit('message', 'illegal filename: '+upfile.name)
         return false
     }
-    if (!map.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
-        console.log('mapupload', 'illegal file extension', map.fileext)
-        socket.emit('message', 'illegal file extension: '+map.fileext)
+    if (!upfile.fileext.match(/^(gif|jpg|jpeg|png)$/)) {
+        console.log('upload', 'illegal file extension', upfile.fileext)
+        socket.emit('message', 'illegal file extension: '+upfile.fileext)
         return false
     }
-    if (!map.id.match(/^[a-z0-9]*$/)) {
-        console.log('mapupload', 'illegal file id', map.id)
-        socket.emit('message', 'illegal file id: '+map.id)
+    if (!upfile.id.match(/^[a-z0-9]*$/)) {
+        console.log('upload', 'illegal file id', upfile.id)
+        socket.emit('message', 'illegal file id: '+upfile.id)
         return false
     }
     return true
@@ -488,7 +498,7 @@ function checkmap(map)
 
 async function do_mapupload(socket, upmap, pageid)
 {
-    if (!checkmap(upmap)) { return }
+    if (!checkfilename(upmap)) { return }
     if (upmap.filesize > maxmapsize) {
         console.log('mapupload', 'file too large', upmap.data.length)
         socket.emit('message', 'file too large: '+formatBytes(upmap.data.length)+' > '+formatBytes(maxmapsize))
@@ -508,7 +518,6 @@ async function do_mapupload(socket, upmap, pageid)
                 id: upmap.id,
                 name: upmap.name,
                 fileext: upmap.fileext,
-                path: pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext,
                 pos: 0
             }, pageid)
     } catch (ex) {
@@ -520,7 +529,7 @@ async function do_mapupload(socket, upmap, pageid)
 
 async function do_mapuploaddata(socket, upmap, pageid)
 {
-    if (!checkmap(upmap)) { return }
+    if (!checkfilename(upmap)) { return }
     if ((diskusagebytes + upmap.data.length) > maxdiskuse) {
         console.log('mapupload', 'disk too full', diskusage, upmap.data.length)
         socket.emit('message', 'disk too full: '+diskusage+' + '+formatBytes(upmap.data.length) + ' > '+formatBytes(maxdiskuse))
@@ -548,7 +557,6 @@ async function do_mapuploaddata(socket, upmap, pageid)
                     id: upmap.id,
                     name: upmap.name,
                     fileext: upmap.fileext,
-                    path: pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext,
                     pos: upmap.pos + upmap.data.length
                 }, pageid)
             check_disk()
@@ -581,31 +589,142 @@ async function do_mapuploaddata(socket, upmap, pageid)
     }
 }
 
-async function do_mapremove(socket, mapname, pageid)
+async function do_mapremove(socket, map, pageid)
 {
     try {
         let done = false
         for (const file of await fsp.readdir('./public/maps/'+pageid)) {
             const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
-            if (m && m[1] == mapname) {
+            if (m && m[1] == map.name) {
                 const mappath = './public/maps/'+pageid+'/'+file
                 console.log('Removing mapfile '+mappath)
                 await fsp.unlink(mappath)
                 console.log('File removed: '+mappath)
-                io.emit('mapremove', { name: mapname }, pageid)
+                io.emit('mapremove', { name: map.name }, pageid)
                 done = true
             }
         }
         check_disk(true)
         if (!done) {
             socket.emit('mapremove', {
-                name: mapname,
+                name: map.name,
                 error: 'Not found'
             }, pageid)
         }
     } catch (ex) {
         console.log('error deleting map', ex)
         socket.emit('message', 'Error deleting map: '+ex)
+    }
+}
+
+async function do_iconupload(socket, upicon, adminid)
+{
+    if (!checkfilename(upicon)) { return }
+    if (upicon.filesize > maxiconsize) {
+        console.log('iconupload', 'file too large', upicon.data.length)
+        socket.emit('message', 'file too large: '+formatBytes(upicon.data.length)+' > '+formatBytes(maxiconsize))
+        return
+    }
+    const iconfolder = './public/icons/'+pageid
+    try {
+        await fsp.mkdir(iconfolder, { recursive: true })
+        for (const file of await fsp.readdir(iconfolder)) {
+            const m = file.match(/^(.*?)\.(jpeg|jpg|gif|png)$/i)
+            if (m && m[1] == upicon.name) {
+                console.log('Removing for upload', iconfolder+'/'+file)
+                await fsp.unlink(iconfolder+'/'+file)
+            }
+        }
+        socket.emit('iconuploaddata', {
+                id: upicon.id,
+                name: upicon.name,
+                fileext: upicon.fileext,
+                pos: 0
+            })
+    } catch (ex) {
+        console.log('iconupload', 'Iconupload error: ', ex)
+        socket.emit('message', 'Iconupload error: '+ex)
+        return
+    }
+}
+
+async function do_iconuploaddata(socket, upicon, adminid)
+{
+    if (!checkfilename(upicon)) { return }
+    if ((diskusagebytes + upicon.data.length) > maxdiskuse) {
+        console.log('iconupload', 'disk too full', diskusage, upicon.data.length)
+        socket.emit('message', 'disk too full: '+diskusage+' + '+formatBytes(upicon.data.length) + ' > '+formatBytes(maxdiskuse))
+        return
+    }
+    try {
+        const iconpath = './public/icons/'+adminid+'/'+upicon.name+'.'+upicon.fileext
+        let cursize = 0
+        try {
+            const fstat = await fsp.stat(iconpath)
+            cursize = fstat.size
+        } catch (ex) {
+            if (ex.code != 'ENOENT') { throw(ex) }
+        }
+        if (cursize != upicon.pos) {
+            console.log('iconupload size mismatch error: '+cursize+' <> '+upicon.pos)
+            socket.emit('message', 'iconupload size mismatch error: '+cursize+' <> '+upicon.pos)
+            return
+        }
+        console.log('Writing icon file', iconpath, upicon.data.length, 'at', upicon.pos)
+        await fsp.appendFile(iconpath, upicon.data, 'Binary')
+        diskusagebytes = diskusagebytes + upicon.data.length
+        if (!upicon.finished) {
+            socket.emit('iconuploaddata', {
+                    id: upicon.id,
+                    name: upicon.name,
+                    fileext: upicon.fileext,
+                    pos: upicon.pos + upicon.data.length
+                }, pageid)
+            check_disk()
+        } else {
+            let icon = {
+                path: adminid+'/'+upicon.name+'.'+upicon.fileext,
+                name: upicon.name
+            }
+            io.emit('iconfile', icon)
+            console.log('iconupload written', iconpath)
+            save_pages()
+            check_disk(true)
+        }
+    } catch (ex) {
+        console.log('iconupload', 'Mapupload error: ', ex)
+        socket.emit('message', 'Mapupload error: '+ex)
+        return
+    }
+}
+
+async function do_iconremove(socket, icon, adminid)
+{
+    try {
+        let done = false
+        for (const file of await fsp.readdir('./public/icons/'+adminid)) {
+            const m = file.match(/^(.*?)\.(jpeg|jpg|gif|png)$/i)
+            if (m && m[1] == icon.name) {
+                const iconpath = './public/icons/'+adminid+'/'+file
+                console.log('Removing iconfile '+iconpath)
+                await fsp.unlink(iconpath)
+                console.log('File removed: '+iconpath)
+                socket.emit('iconremove', { name: icon.name })
+                done = true
+            }
+        }
+        check_disk(true)
+        if (!done) {
+            console.log('Remove icon not found', icon, adminid)
+            socket.emit('iconremove', {
+                name: icon.name,
+                error: 'Not found'
+            }, pageid)
+            do_sendicons(socket, adminid)
+        }
+    } catch (ex) {
+        console.log('error deleting icon', ex)
+        socket.emit('message', 'Error deleting icon: '+ex)
     }
 }
 
@@ -656,14 +775,14 @@ async function do_selectpage(socket, pageid)
 }
 
 
-async function do_sendicons(socket, admin)
+async function do_sendicons(socket, adminid)
 {
     try {
-        for (const file of await fsp.readdir('./public/icons/'+admin)) {
+        for (const file of await fsp.readdir('./public/icons/'+adminid)) {
             const m = file.match(/^(.*?)\.(jpeg|jpg|gif|png)$/i)
             if (m) {
                 const iconname = m[1]
-                const iconpath = admin+'/'+file
+                const iconpath = adminid+'/'+file
                 socket.emit('iconfile', { name: iconname, path: iconpath })
             }
         }
