@@ -92,9 +92,6 @@ function get_pages(pages)
         $('#markers').on('click', '.mapiconmenu .menuitem', send_mapicon_menu)
         $('#markers').on('mousedown', '.mapiconmenu .rotateicon', rotate_mapicon)
 
-        $('#mapicons').on('contextmenu', '.mapicon', show_icon_menu)
-        $('#mapicons').on('click', '.iconmenu .menuitem', send_icon_menu)
-
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         socket.on('message', function(err) {
             alert(err)
@@ -416,6 +413,7 @@ function load() {
     $('#mapicons').on('mousedown', function(e) { if (e.which == 1) return false })
     $('#mapicons').on('mousedown', '.mapicon', start_mapicon)
     $('#markers').on('mousedown', '.mapicon', drag_mapicon)
+    $('#removemapicon').on('mousedown', drag_removeicon)
 
     set_aoe_styles()
     $('td.area-effects').on('click','div', add_aoe)
@@ -524,32 +522,38 @@ function show_mapicon_menu(e)
     }
 }
 
-function show_icon_menu(e)
+function drag_removeicon(e)
 {
-    if (adminonly) {
-        var elem = $(this)
-        var menu = $('<div class="contextmenu iconmenu" '+
-            'data-name="'+elem.attr('data-name')+'">'+
-            '<div class="menuheader">'+elem.attr('data-name')+'</div>'+
-            '<div class="menuitem removeicon" data-action="remove">Remove</div>'+
-            '</div>').appendTo('#mapicons')
-        menu.mouseleave(hide_marker_menu)
-        var x = e.pageX - 10
-        var y = e.pageY - 10
-        menu.css({position: 'fixed', left: x+'px', top: y+'px'})
+    if (e.which != 1) return
+    $('#dragremoveicon').remove()
+    var removeicon = $('<div id="dragremoveicon" class="tile">Re Move</div>').appendTo('#mapicons')
+    removeicon.css({left:e.pageX+'px',top:e.pageY+'px'})
+    $('#mapicons .mapicon').on('mouseenter', function(e) {
+        $(this).addClass('removing')
+    }).on('mouseleave', function(e) {
+        $(this).removeClass('removing')
+    })
+    $(window).on('mousemove', function(e) {
+        removeicon.css({left:e.pageX+'px',top:e.pageY+'px'})
         return false
-    }
+    }).on('mouseup', function(e) {
+        $(window).off('mousemove').off('mouseup')
+        $('#mapicons .mapicon').off('mouseenter').off('mouseleave')
+        var toremove = $('#mapicons .mapicon.removing')
+        if (toremove.length) {
+            socket.emit('iconremove', { name: toremove.attr('data-name') })
+        }
+        removeicon.remove()
+        return false
+    })
+
+    return false
 }
 
-function send_icon_menu(e)
+function send_icon_remove(e)
 {
     var elem = $(this)
-    var menu = elem.closest('.iconmenu')
-    var action = elem.attr('data-action')
-    if (action == 'remove') {
-        socket.emit('iconremove', { name: menu.attr('data-name') })
-    }
-    menu.remove()
+    socket.emit('iconremove', { name: elem.attr('data-name') })
 }
 
 function send_mapicon_menu(e)
@@ -1235,9 +1239,6 @@ function drag_mapicon(e)
         var x = e.pageX
         var y = e.pageY
         mapicon.css({left:x+'px',top:y+'px'})
-
-        var imx = (e.pageX - zoompos.x)/zoompos.w
-        var imy = (e.pageY - zoompos.y)/zoompos.h
         return false
     }).on('mouseup', function(e) {
         if ((e.pageX != currentX) || (e.pageY != currentY)) {

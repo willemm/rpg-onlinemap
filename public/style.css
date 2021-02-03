@@ -614,8 +614,29 @@ body.frozen #initiative {
     cursor: grab;
 }
 
+#mapicons .mapicon.removing {
+    background: repeating-linear-gradient(135deg, #eeeeee 0.5px, #ffaaaa 2px, #ffaaaa 3.5px, #eeeeee 7px);
+    transform-origin: 50% 50%;
+    transform: scale(1.1);
+}
+
 #mapicons #newmapicon.tile {
     background: #dddddd;
+}
+
+#mapicons #removemapicon.tile {
+    background: repeating-linear-gradient(135deg, #eeeeee 0.5px, #ffaaaa 2px, #ffaaaa 3.5px, #eeeeee 7px);
+}
+#mapicons #dragremoveicon.tile {
+    background: repeating-linear-gradient(135deg, #eeeeee 0.5px, #ffaaaa 2px, #ffaaaa 3.5px, #eeeeee 7px);
+    position: absolute;
+    margin-left: -40px;
+    margin-top: -40px;
+    pointer-events: none;
+    cursor: crosshair;
+    opacity: 0.5;
+    z-index: 100;
+    border-radius: 100px;
 }
 
 #mapicons div.button {

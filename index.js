@@ -263,11 +263,12 @@ io.on('connection', function(socket) {
                 }
                 if (marker.charid) {
                     let mcount = 0
-                    // Count doubles, remove pc doubles
+                    // Count doubles
                     for (key in pages[pageid].markers) {
                         const mrk = pages[pageid].markers[key]
                         if (mrk.charid == marker.charid) {
-                            if (!mrk.cls.match(/(^| )pc( |$)/)) {
+                            if (mrk.cls.match(/(^| )pc( |$)/)) {
+                                // Remove pc doubles
                                 io.emit('marker', { id: mrk.id, remove: true}, pageid)
                                 delete pages[pageid].markers[key]
                             } else {
