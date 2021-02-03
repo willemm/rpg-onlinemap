@@ -626,7 +626,7 @@ async function do_iconupload(socket, upicon, adminid)
         socket.emit('message', 'file too large: '+formatBytes(upicon.data.length)+' > '+formatBytes(maxiconsize))
         return
     }
-    const iconfolder = './public/icons/'+pageid
+    const iconfolder = './public/icons/'+adminid
     try {
         await fsp.mkdir(iconfolder, { recursive: true })
         for (const file of await fsp.readdir(iconfolder)) {
@@ -680,7 +680,7 @@ async function do_iconuploaddata(socket, upicon, adminid)
                     name: upicon.name,
                     fileext: upicon.fileext,
                     pos: upicon.pos + upicon.data.length
-                }, pageid)
+                })
             check_disk()
         } else {
             let icon = {
@@ -720,7 +720,7 @@ async function do_iconremove(socket, icon, adminid)
             socket.emit('iconremove', {
                 name: icon.name,
                 error: 'Not found'
-            }, pageid)
+            })
             do_sendicons(socket, adminid)
         }
     } catch (ex) {
