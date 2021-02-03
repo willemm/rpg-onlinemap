@@ -341,12 +341,17 @@ io.on('connection', function(socket) {
                     path:   icon.path,
                     name:   icon.name,
                     angle:  icon.angle,
-                    player: icon.player
+                    locked: icon.locked || false
                 }
-            } else if ((pages[pageid].owner != admin) && !pages[pageid].icons[icon.id].player) {
-                // Send original position back
-                socket.emit('icon', pages[pageid].icons[icon.id], pageid)
-                return
+            }
+            if ((pages[pageid].owner == admin) && icon.locked != undefined) {
+                pages[pageid].icons[icon.id].locked = icon.locked
+            } else {
+                if (pages[pageid].icons[icon.id].locked) {
+                    // Send original position back
+                    socket.emit('icon', pages[pageid].icons[icon.id], pageid)
+                    return
+                }
             }
             if ((pages[pageid].owner == admin) && (icon.remove)) {
                 delete pages[pageid].icons[icon.id]

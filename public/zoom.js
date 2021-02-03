@@ -310,6 +310,11 @@ function set_icon(mapicon, pageid)
     iconimg.attr('src', 'icons/'+mapicon.path)
     iconimg.css({ transform: 'rotate('+(mapicon.angle||0)+'deg)' })
     mapicondiv.css({ left: x+'px', top: y+'px' })
+    if (mapicon.locked) {
+        mapicondiv.addClass('locked')
+    } else {
+        mapicondiv.removeClass('locked')
+    }
 }
 
 function set_pagetitle(pagetitle, pageid) {
@@ -512,6 +517,9 @@ function show_mapicon_menu(e)
             'data-id="'+elem.attr('data-id')+'" data-page="'+elem.attr('data-page')+'">'+
             '<div class="menuheader">'+elem.attr('data-name')+'</div>'+
             '<div class="menuitem rotateicon" data-action="rotate">Rotate</div>'+
+            (elem.hasClass('locked') ? 
+                '<div class="menuitem unlockicon" data-action="unlock">Unlock</div>' :
+                '<div class="menuitem lockicon" data-action="lock">Lock</div>' )+
             '<div class="menuitem removeicon" data-action="remove">Remove</div>'+
             '</div>').appendTo('#markers')
         menu.mouseleave(hide_marker_menu)
@@ -567,6 +575,12 @@ function send_mapicon_menu(e)
     if (mapicon.length) {
         if (action == 'remove') {
             socket.emit('icon', { id: mapiconid, remove: true }, pageid)
+        }
+        if (action == 'lock') {
+            socket.emit('icon', { id: mapiconid, locked: true }, pageid)
+        }
+        if (action == 'unlock') {
+            socket.emit('icon', { id: mapiconid, locked: false }, pageid)
         }
     }
     menu.remove()
@@ -1230,6 +1244,7 @@ function drag_mapicon(e)
     if (e.which != 1) return
     if (!$('#zoompopup').is(':visible')) return false
     var mapicon = $(this)
+    if (mapicon.hasClass('locked')) return
     var currentX = e.pageX
     var currentY = e.pageY
     mapicon.addClass('dragging')
@@ -1253,8 +1268,7 @@ function drag_mapicon(e)
                     name:   mapicon.attr('data-name'),
                     angle:  parseInt(mapicon.attr('data-angle')) || 0,
                     imx:    imx,
-                    imy:    imy,
-                    player: false, // true to enable plebs to move them
+                    imy:    imy
             }, mapicon.attr('data-page'))
         }
         mapicon.removeClass('dragging')
