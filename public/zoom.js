@@ -420,7 +420,6 @@ function set_map(map, pageid)
     $('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active').prop('checked', true), ('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active')
     if (pageid == currentpageid) {
         $('#map img').attr('src', 'maps/'+map.path)
-        zoompos = null
     }
 }
 
@@ -1469,7 +1468,7 @@ function set_zoom(sp)
         w: iw,
         h: ih
     }
-    socket.emit('getmarkers', { mainmap: true }, currentpageid)
+    socket.emit('getmarkers', {}, currentpageid)
     return false
 }
 
