@@ -90,6 +90,7 @@ function get_pages(pages)
 
         $('#markers').on('contextmenu', '.mapicon img', show_mapicon_menu)
         $('#markers').on('click', '.mapiconmenu .menuitem', send_mapicon_menu)
+        $('#markers').on('mousedown', '.mapiconmenu .scaleicon', scale_mapicon)
         $('#markers').on('mousedown', '.mapiconmenu .rotateicon', rotate_mapicon)
 
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
@@ -306,9 +307,11 @@ function set_icon(mapicon, pageid)
     }
     var x = mapicon.imx * zoompos.w + zoompos.x
     var y = mapicon.imy * zoompos.h + zoompos.y
+    var w = mapicon.imw * zoompos.w
+    var h = mapicon.imh * zoompos.h
     var iconimg = mapicondiv.find('img')
     iconimg.attr('src', 'icons/'+mapicon.path)
-    iconimg.css({ transform: 'rotate('+(mapicon.angle||0)+'deg)' })
+    iconimg.css({ transform: 'rotate('+(mapicon.angle||0)+'deg)', width: w, height: h })
     mapicondiv.css({ left: x+'px', top: y+'px' })
     if (mapicon.locked) {
         mapicondiv.addClass('locked')
@@ -519,6 +522,7 @@ function show_mapicon_menu(e)
             (elem.hasClass('locked') ? 
                 '<div class="menuitem unlockicon" data-action="unlock">Unlock</div>' :
                 '<div class="menuitem lockicon" data-action="lock">Lock</div>'+
+                '<div class="menuitem scaleicon" data-action="scale">Scale</div>'+
                 '<div class="menuitem rotateicon" data-action="rotate">Rotate</div>'+
                 '<div class="menuitem removeicon" data-action="remove">Remove</div>')+
             '</div>').appendTo('#markers')
@@ -591,14 +595,20 @@ function rotate_mapicon(e)
     if (e.which != 1) return
     var menu = $(this).closest('.mapiconmenu')
     var mapicon = $('#markers .mapicon[data-page="'+menu.attr('data-page')+'"][data-id="'+menu.attr('data-id')+'"]')
+    mapicon.addClass('rotating')
     var iconimg = mapicon.find('img')
     var currentX = e.pageX
     var curangle = parseInt(mapicon.attr('data-angle')) || 0
+    var clickto = new Date().getTime() + 200
     $(window).on('mousemove', function(e) {
         var ang = Math.round(((e.pageX - currentX) / 3 + curangle) % 360)
         if (ang < 0) { ang = ang + 360 }
         iconimg.css({ transform: 'rotate('+ang+'deg)'})
     }).on('mouseup', function(e) {
+        if (new Date().getTime() < clickto) {
+            return false
+        }
+        $(window).off('mousemove').off('mouseup')
         var ang = Math.round(((e.pageX - currentX) / 3 + curangle) % 360)
         if (ang < 0) { ang = ang + 360 }
         iconimg.css({ transform: 'rotate('+ang+'deg)'})
@@ -609,7 +619,47 @@ function rotate_mapicon(e)
                 angle:  ang
             }, mapicon.attr('data-page'))
         }
+        mapicon.removeClass('rotating')
+        return false
+    })
+    menu.remove()
+    return false
+}
+
+function scale_mapicon(e)
+{
+    if (e.which != 1) return
+    var menu = $(this).closest('.mapiconmenu')
+    var mapicon = $('#markers .mapicon[data-page="'+menu.attr('data-page')+'"][data-id="'+menu.attr('data-id')+'"]')
+    mapicon.addClass('scaling')
+    var iconimg = mapicon.find('img')
+    var iconw = iconimg.prop('naturalWidth')
+    var iconh = iconimg.prop('naturalHeight')
+    var currentX = e.pageX
+    var curscale = iconimg.width() / iconw
+    var clickto = new Date().getTime() + 200
+    $(window).on('mousemove', function(e) {
+        var scale = curscale * Math.pow(1.002, e.pageX - currentX)
+        var imw = iconw * scale
+        var imh = iconh * scale
+        iconimg.css({ width: imw+'px', height: imh+'px'})
+    }).on('mouseup', function(e) {
+        if (new Date().getTime() < clickto) {
+            return false
+        }
         $(window).off('mousemove').off('mouseup')
+        var scale = curscale * Math.pow(1.002, e.pageX - currentX)
+        var imw = iconw * scale
+        var imh = iconh * scale
+        iconimg.css({ width: imw+'px', height: imh+'px' })
+        if (scale != curscale) {
+            socket.emit('icon', {
+                id:   mapicon.attr('data-id'),
+                imw:  imw / zoompos.w,
+                imh:  imh / zoompos.h
+            }, mapicon.attr('data-page'))
+        }
+        mapicon.removeClass('scaling')
         return false
     })
     menu.remove()
@@ -823,6 +873,7 @@ function upload_map_data(datareq, pageid)
             }, pageid)
             filetr.removeClass('uploading')
             filetr.find('div.upload.button').text('browse')
+            delete uploads[pageid+'/'+datareq.id]
         }
         upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos))
     } else {
@@ -849,7 +900,7 @@ function upload_map(e)
     var filetr = fileinp.closest('tr')
     var file = this.files[0]
     if (file.size > 10000000) {
-        alert('File '+file.name+' too big: '+file.size)
+        alert('File '+file.name+' too big: '+formatBytes(file.size))
         filetr.addClass('failed')
         return
     }
@@ -896,6 +947,8 @@ function upload_icon_data(datareq)
             } )
             iconupl.removeClass('uploading')
             iconupl.find('div.upload.button').text('Up load')
+            delete uploads[datareq.id]
+            upload_icon()
         }
         upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos))
     } else {
@@ -916,20 +969,31 @@ function upload_icon_data(datareq)
     }
 }
 
+var iconupload_queue = []
+
 function upload_icon(e)
 {
-    var fileinp = $(this)
-    var iconupl = $('#newmapicon')
-    var file = this.files[0]
-    if (file.size > 1000000) {
-        alert('File '+file.name+' too big: '+file.size)
-        iconupl.addClass('failed')
-        return
+    if (this.files) {
+        var toolarge = []
+        for (var i = 0; i < this.files.length; i++) {
+            if (this.files[i].size > 1000000) {
+                toolarge.push('File '+this.files[i].name+' too big: '+formatBytes(this.files[i].size))
+            } else {
+                iconupload_queue.push(this.files[i])
+            }
+        }
+        if (toolarge.length > 0) {
+            alert(toolarge.join("\n"))
+        }
     }
+    if (iconupload_queue.length == 0) { return }
+
+    var file = iconupload_queue.shift()
     var filename = file.name.replace(/\..*$/, '')
     var fileext  = file.name.replace(/^.*\./,'')
+
     var reader = new FileReader()
-    iconupl.removeClass('failed').addClass('uploading')
+    $('#newmapicon').removeClass('failed').addClass('uploading')
     var icon_id = get_uid()
     uploads[icon_id] = {
         reader: reader,
@@ -1262,13 +1326,19 @@ function drag_mapicon(e)
             mapicon.css({left:x+'px',top:y+'px'})
             var imx = (e.pageX - zoompos.x)/zoompos.w
             var imy = (e.pageY - zoompos.y)/zoompos.h
+            var iconimg = mapicon.find('img')
+            var imw = iconimg.width()  / zoompos.w
+            var imh = iconimg.height() / zoompos.h
+            console.log(iconimg.width(), iconimg.height(), imw, imh)
             socket.emit('icon', {
                     id:     mapicon.attr('data-id'),
                     path:   mapicon.attr('data-path'),
                     name:   mapicon.attr('data-name'),
                     angle:  parseInt(mapicon.attr('data-angle')) || 0,
                     imx:    imx,
-                    imy:    imy
+                    imy:    imy,
+                    imw:    imw,
+                    imh:    imh
             }, mapicon.attr('data-page'))
         }
         mapicon.removeClass('dragging')
@@ -1384,4 +1454,17 @@ function hide_zoom()
         $('#area-effects tr.aoe').remove()
         socket.emit('zoom', { x: 0, y: 0, w: 0, h: 0 }, currentpageid)
     }
+}
+
+function formatBytes(bytes, decimals = 2)
+{
+    if (bytes === 0) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }

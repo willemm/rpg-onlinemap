@@ -365,11 +365,19 @@ io.on('connection', function(socket) {
             if (icon.imy != undefined) {
                 pages[pageid].icons[icon.id].imy = icon.imy
             }
-            if ((pages[pageid].owner == admin) && (icon.path != undefined)) {
-                pages[pageid].icons[icon.id].path = icon.path
-            }
-            if ((pages[pageid].owner == admin) && (icon.angle != undefined)) {
-                pages[pageid].icons[icon.id].angle = icon.angle
+            if (pages[pageid].owner == admin) {
+                if (icon.imw != undefined) {
+                    pages[pageid].icons[icon.id].imw = icon.imw
+                }
+                if (icon.imh != undefined) {
+                    pages[pageid].icons[icon.id].imh = icon.imh
+                }
+                if (icon.path != undefined) {
+                    pages[pageid].icons[icon.id].path = icon.path
+                }
+                if (icon.angle != undefined) {
+                    pages[pageid].icons[icon.id].angle = icon.angle
+                }
             }
             io.emit('icon', pages[pageid].icons[icon.id], pageid)
             save_pages()

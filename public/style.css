@@ -649,11 +649,30 @@ body.frozen #initiative {
     cursor: ew-resize;
 }
 
+#markers .mapiconmenu .scaleicon {
+    cursor: pointer;
+    cursor: grab;
+    cursor: ew-resize;
+}
+
 #markers .mapicon {
     position: absolute;
     z-index: 25;
     cursor: default;
 }
+
+#markers .mapicon.rotating img {
+    border: 2px dashed rgba(0,0,0,0.7);
+    padding: 4px;
+    border-radius: 100%;
+}
+
+#markers .mapicon.scaling img {
+    border: 2px dashed rgba(0,0,0,0.7);
+    padding: 4px;
+    border-radius: 0;
+}
+
 /* Make the topleft of the div be the center of the image */
 #markers .mapicon img {
     margin-left: -50%;
