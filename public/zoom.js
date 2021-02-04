@@ -2,7 +2,7 @@ $(load)
 
 var dragging
 var currentpageid
-var zoompos = {}
+var zoompos = null
 var adminonly = false
 
 var charclasslist
@@ -293,17 +293,27 @@ function set_marker(marker, pageid)
 function set_icon(mapicon, pageid)
 {
     if (pageid != currentpageid) { return }
-    if (!$('#zoompopup').is(':visible')) { return }
     var mapicondiv = $('#markers .mapicon[data-id="'+mapicon.id+'"]')
     if (mapicon.remove) {
         mapicondiv.remove()
         return
     }
+    if (!$('#zoompopup').is(':visible') && !mapicon.mainmap) { return }
     if (!mapicondiv.length) {
         mapicondiv = $('<div title="'+mapicon.name+'" data-id="'+mapicon.id+
             '" data-name="'+mapicon.name+'" data-angle="'+mapicon.angle+
             '" data-page="'+pageid+'" data-path="'+mapicon.path+'" class="mapicon">'+
             '<img src="icons/'+mapicon.path+'"></div>').appendTo('#markers')
+    }
+    if (!zoompos || !zoompos.w) {
+        var mainmapimg = $('#map img')
+        var mainmapoff = mainmapimg.offset()
+        zoompos = {
+            x: mainmapoff.left,
+            y: mainmapoff.top,
+            w: mainmapimg.width(),
+            h: mainmapimg.height()
+        }
     }
     var x = mapicon.imx * zoompos.w + zoompos.x
     var y = mapicon.imy * zoompos.h + zoompos.y
@@ -313,6 +323,11 @@ function set_icon(mapicon, pageid)
     iconimg.attr('src', 'icons/'+mapicon.path)
     iconimg.css({ transform: 'rotate('+(mapicon.angle||0)+'deg)', width: w, height: h })
     mapicondiv.css({ left: x+'px', top: y+'px' })
+    if (mapicon.mainmap) {
+        mapicondiv.addClass('mainmap')
+    } else {
+        mapicondiv.removeClass('mainmap')
+    }
     if (mapicon.locked) {
         mapicondiv.addClass('locked')
     } else {
@@ -347,6 +362,11 @@ function show_page(page)
     $('#fileupload tr.mapupload:not(.mapuploadnew)').remove()
     set_pagetitle(page.title || '', page.id)
     set_freeze(page.frozen, page.id)
+    if (page.map) {
+        set_map(page.map, page.id)
+    } else {
+        $('#map img').attr('src', 'Welcome.png')
+    }
     if (page.zoom) {
         $('#selector').hide()
         $('#zoompopup').hide()
@@ -386,10 +406,12 @@ function show_page(page)
         $('#playerlink a').text('')
         $('#playerlink a').attr('href', '')
     }
-    if (page.map) {
-        set_map(page.map, page.id)
-    } else {
-        $('#map img').attr('src', 'Welcome.png')
+}
+
+function get_main_markers(e)
+{
+    if (!$('#zoompopup').is(':visible')) {
+        socket.emit('getmarkers', { mainmap: true }, currentpageid)
     }
 }
 
@@ -398,6 +420,7 @@ function set_map(map, pageid)
     $('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active').prop('checked', true), ('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active')
     if (pageid == currentpageid) {
         $('#map img').attr('src', 'maps/'+map.path)
+        zoompos = null
     }
 }
 
@@ -438,6 +461,8 @@ function load() {
     $('#pageselect').on('change', select_page)
 
     $('#fileupload input.mapnamenew').val('')
+
+    $('#map img').on('load', get_main_markers)
 
     var stylecss = $('link[href="style.css"]')
     if (stylecss.length) {
@@ -507,7 +532,7 @@ function show_marker_menu(e)
         marker_menu.mouseleave(hide_marker_menu)
         var x = e.pageX - 10
         var y = e.pageY - 10
-        marker_menu.css({position: 'fixed', left: x+'px', top: y+'px'})
+        marker_menu.css({position: 'absolute', left: x+'px', top: y+'px'})
         return false
     }
 }
@@ -529,7 +554,7 @@ function show_mapicon_menu(e)
         menu.mouseleave(hide_marker_menu)
         var x = e.pageX - 10
         var y = e.pageY - 10
-        menu.css({position: 'fixed', left: x+'px', top: y+'px'})
+        menu.css({position: 'absolute', left: x+'px', top: y+'px'})
         return false
     }
 }
@@ -642,7 +667,7 @@ function scale_mapicon(e)
         var scale = curscale * Math.pow(1.002, e.pageX - currentX)
         var imw = iconw * scale
         var imh = iconh * scale
-        iconimg.css({ width: imw+'px', height: imh+'px'})
+        iconimg.css({ 'max-width': '', 'max-height': '', width: imw+'px', height: imh+'px'})
     }).on('mouseup', function(e) {
         if (new Date().getTime() < clickto) {
             return false
@@ -651,7 +676,7 @@ function scale_mapicon(e)
         var scale = curscale * Math.pow(1.002, e.pageX - currentX)
         var imw = iconw * scale
         var imh = iconh * scale
-        iconimg.css({ width: imw+'px', height: imh+'px' })
+        iconimg.css({ 'max-width': '', 'max-height': '', width: imw+'px', height: imh+'px'})
         if (scale != curscale) {
             socket.emit('icon', {
                 id:   mapicon.attr('data-id'),
@@ -1233,15 +1258,16 @@ function start_marker(e)
 function start_mapicon(e)
 {
     if (e.which != 1) return
-    if (!$('#zoompopup').is(':visible')) return false
+    var mainmap = false
+    if (!$('#zoompopup').is(':visible')) mainmap = true
     var icon = $(this)
     var path = icon.attr('data-path')
 
     var iconid = get_uid()
     var mapicon = $('<div title="'+icon.attr('data-name')+'" data-id="'+iconid+
         '" data-name="'+icon.attr('data-name')+'" data-angle="0"'+
-        'data-page="'+currentpageid+'" data-path="'+path+'" class="mapicon">'+
-        '<img src="icons/'+path+'"></div>').appendTo('#markers')
+        'data-page="'+currentpageid+'" data-path="'+path+'" class="mapicon'+(mainmap ? ' mainmap' : '')+'">'+
+        '<img style="max-width: 50px; max-height: 50px;" src="icons/'+path+'"></div>').appendTo('#markers')
     drag_mapicon.apply(mapicon, [e])
 
     return false
@@ -1306,11 +1332,20 @@ function drag_marker(e)
 function drag_mapicon(e)
 {
     if (e.which != 1) return
-    if (!$('#zoompopup').is(':visible')) return false
     var mapicon = $(this)
     if (mapicon.hasClass('locked')) return
     var currentX = e.pageX
     var currentY = e.pageY
+    if (!zoompos) {
+        var mainmapimg = $('#map img')
+        var mainmapoff = mainmapimg.offset()
+        zoompos = {
+            x: mainmapoff.left,
+            y: mainmapoff.top,
+            w: mainmapimg.width(),
+            h: mainmapimg.height()
+        }
+    }
     mapicon.addClass('dragging')
     $(window).on('mousemove', function(e) {
         if ((e.pageX == currentX) && (e.pageY == currentY)) { return }
@@ -1329,16 +1364,17 @@ function drag_mapicon(e)
             var iconimg = mapicon.find('img')
             var imw = iconimg.width()  / zoompos.w
             var imh = iconimg.height() / zoompos.h
-            console.log(iconimg.width(), iconimg.height(), imw, imh)
+            var mainmap = mapicon.hasClass('mainmap')
             socket.emit('icon', {
-                    id:     mapicon.attr('data-id'),
-                    path:   mapicon.attr('data-path'),
-                    name:   mapicon.attr('data-name'),
-                    angle:  parseInt(mapicon.attr('data-angle')) || 0,
-                    imx:    imx,
-                    imy:    imy,
-                    imw:    imw,
-                    imh:    imh
+                    id:      mapicon.attr('data-id'),
+                    path:    mapicon.attr('data-path'),
+                    name:    mapicon.attr('data-name'),
+                    angle:   parseInt(mapicon.attr('data-angle')) || 0,
+                    mainmap: mainmap,
+                    imx:     imx,
+                    imy:     imy,
+                    imw:     imw,
+                    imh:     imh
             }, mapicon.attr('data-page'))
         }
         mapicon.removeClass('dragging')
@@ -1433,7 +1469,7 @@ function set_zoom(sp)
         w: iw,
         h: ih
     }
-    socket.emit('getmarkers', currentpageid)
+    socket.emit('getmarkers', { mainmap: true }, currentpageid)
     return false
 }
 
@@ -1453,6 +1489,8 @@ function hide_zoom()
         $('#zoomoverlay div.aoe').remove()
         $('#area-effects tr.aoe').remove()
         socket.emit('zoom', { x: 0, y: 0, w: 0, h: 0 }, currentpageid)
+        zoompos = null
+        socket.emit('getmarkers', { mainmap: true }, currentpageid)
     }
 }
 

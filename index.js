@@ -202,10 +202,18 @@ io.on('connection', function(socket) {
             socket.on('clearzoom', (pageid) => {
                 if (!pages[pageid] || pages[pageid].owner != admin) { return }
                 if (pages[pageid].frozen) { return }
+                // Filter mainmap icons
+                let icons = pages[pageid].icons
+                pages[pageid].icons = {}
+                for (ic in icons) {
+                    if (icons[ic].mainmap) {
+                        pages[pageid].icons[ic] = icons[ic]
+                    }
+                }
+
                 pages[pageid].markers = {}
                 pages[pageid].areas = {}
                 pages[pageid].effects = {}
-                pages[pageid].icons = {}
                 pages[pageid].zoom = {
                     x: 0, y: 0, h: 0, w: 0
                 }
@@ -337,11 +345,12 @@ io.on('connection', function(socket) {
                     delete pages[pageid].icons[keys[0]]
                 }
                 pages[pageid].icons[icon.id] = {
-                    id:     icon.id,
-                    path:   icon.path,
-                    name:   icon.name,
-                    angle:  icon.angle,
-                    locked: icon.locked || false
+                    id:      icon.id,
+                    path:    icon.path,
+                    name:    icon.name,
+                    angle:   icon.angle,
+                    locked:  icon.locked  || false,
+                    mainmap: icon.mainmap || false
                 }
             }
             if ((pages[pageid].owner == admin) && icon.locked != undefined) {
@@ -377,6 +386,9 @@ io.on('connection', function(socket) {
                 }
                 if (icon.angle != undefined) {
                     pages[pageid].icons[icon.id].angle = icon.angle
+                }
+                if (icon.mainmap != undefined) {
+                    pages[pageid].icons[icon.id].mainmap = icon.mainmap
                 }
             }
             io.emit('icon', pages[pageid].icons[icon.id], pageid)
@@ -446,18 +458,26 @@ io.on('connection', function(socket) {
             }
             save_pages()
         })
-        socket.on('getmarkers', (pageid) => {
-            for (const i in pages[pageid].markers) {
-                socket.emit('marker', pages[pageid].markers[i], pageid)
-            }
-            for (const i in pages[pageid].icons) {
-                socket.emit('icon', pages[pageid].icons[i], pageid)
-            }
-            for (const i in pages[pageid].effects) {
-                socket.emit('effect', pages[pageid].effects[i], pageid)
-            }
-            for (const i in pages[pageid].areas) {
-                socket.emit('area', pages[pageid].areas[i], pageid)
+        socket.on('getmarkers', (opts, pageid) => {
+            if (opts.mainmap) {
+                for (const i in pages[pageid].icons) {
+                    if (pages[pageid].icons[i].mainmap) {
+                        socket.emit('icon', pages[pageid].icons[i], pageid)
+                    }
+                }
+            } else {
+                for (const i in pages[pageid].markers) {
+                    socket.emit('marker', pages[pageid].markers[i], pageid)
+                }
+                for (const i in pages[pageid].icons) {
+                    socket.emit('icon', pages[pageid].icons[i], pageid)
+                }
+                for (const i in pages[pageid].effects) {
+                    socket.emit('effect', pages[pageid].effects[i], pageid)
+                }
+                for (const i in pages[pageid].areas) {
+                    socket.emit('area', pages[pageid].areas[i], pageid)
+                }
             }
         })
     })
