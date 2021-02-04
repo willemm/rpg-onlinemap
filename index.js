@@ -459,6 +459,7 @@ io.on('connection', function(socket) {
             save_pages()
         })
         socket.on('getmarkers', (opts, pageid) => {
+            if (!pages[pageid]) { return }
             if (opts.mainmap) {
                 for (const i in pages[pageid].icons) {
                     if (pages[pageid].icons[i].mainmap) {
