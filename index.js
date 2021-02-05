@@ -686,7 +686,6 @@ async function do_mapedit(socket, map, pageid)
         for (const file of await fsp.readdir(mapfolder)) {
             const m = file.match(/^(.*?)-[0-9a-z][0-9a-z]+(?:-(f|b))?\.(jpeg|jpg|gif|png)$/i)
             if (m && m[1] == map.name) {
-                console.log('dbg found', file)
                 if (m[2] == 'f') {
                     mapfore = file
                 } else if (m[2] == 'b') {
@@ -696,7 +695,7 @@ async function do_mapedit(socket, map, pageid)
                 }
             }
         }
-        console.log('dbg found files', mapfore, mapback, mapfile)
+        console.log('mapedit found files', mapfore, mapback, mapfile)
         if (!mapfile && !mapfore) {
             socket.emit('message', 'mapedit map '+map.name+' not found')
             return
@@ -704,7 +703,7 @@ async function do_mapedit(socket, map, pageid)
         if (!mapfore) {
             const m = mapfile.match(/^(.*?)-[0-9a-z][0-9a-z]+\.(jpeg|jpg|gif|png)$/i)
             mapfore = m[1]+'-'+get_uid()+'-f.'+m[2]
-            console.log('dbg copy', mapfile, mapfore)
+            console.log('mapedit move to foreground file', mapfile, mapfore)
             await fsp.rename(mapfolder+'/'+mapfile, mapfolder+'/'+mapfore)
             mapfile = null
             // await fsp.copyFile(mapfolder+'/'+mapfile, mapfolder+'/'+mapfore)
