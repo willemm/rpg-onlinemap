@@ -99,11 +99,12 @@ function get_pages(pages)
             $(this).addClass('selected')
         })
         $('#mapeditbuttons').on('click', '.button.save', save_canvas)
+        $('#mapeditbuttons').on('click', '.button.cancel', cancel_canvas)
         $('#mapeditbuttons').on('mouseenter', '.button.save', function(e) {
-            $('#map.editing').addClass('preview')
+            $('#map').addClass('preview')
         })
         $('#mapeditbuttons').on('mouseleave', '.button.save', function(e) {
-            $('#map.editing').removeClass('preview')
+            $('#map').removeClass('preview')
         })
         $('#map').on('mousedown', 'canvas', select_canvas)
         $('#map').on('mousedown', 'canvas', select_canvas)
@@ -438,6 +439,17 @@ function set_map(map, pageid)
 {
     $('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active').prop('checked', true), ('#fileupload tr[data-page="'+pageid+'"][data-name="'+map.name+'"] input.active')
     if (pageid == currentpageid) {
+        var editmap = $('#editcanvas')
+        if (editmap.length) {
+            if ((editmap.attr('data-page') == pageid) && (editmap.attr('data-name') == map.name)) {
+                $('#map').html('<img><div id="selector"></div>')
+                $('#map').removeClass('preview')
+                $(document.body).removeClass('editingmap')
+                $('#mapeditbuttons').html('')
+            } else {
+                return
+            }
+        }
         $('#map img').attr('src', 'maps/'+map.path)
     }
 }
@@ -859,7 +871,7 @@ function add_mapfile(map, pageid)
                               '<td><label><div class="upload button">browse</div>'+
                               '<input name="mapimage" type="file" class="uploadfile" value="Map" '+
                               'accept=".jpg,.png,.gif,image/*"></label></td>'+
-                              '<td class="editmap"><div class="edit button">Edit</div></td>'+
+                              '<td class="editmap"><div class="edit button">edit</div></td>'+
                               '<td class="removemap"><div class="remove button">X</div></td>'+
                            '</tr>').insertBefore('#fileupload tr.mapuploadnew')
         }
@@ -918,12 +930,6 @@ function upload_map_data(datareq, pageid)
             }, pageid)
             filetr.removeClass('uploading')
             filetr.find('div.upload.button').text('browse')
-            var editmap = $('#editcanvas[data-page="'+pageid+'"][data-name="'+datareq.name+'"]')
-            if (editmap.length) {
-                $('#map').html('<img src="maps/'+datareq.path+'"><div id="selector"></div>')
-                $('#map').removeClass('preview editing')
-                $('#mapeditbuttons').html('')
-            }
             delete uploads[pageid+'/'+datareq.id]
         }
         upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos))
@@ -1285,6 +1291,7 @@ function start_marker(e)
 function start_mapicon(e)
 {
     if (e.which != 1) return
+    if ($(document.body).hasClass('editingmap')) return
     var mainmap = false
     if (!$('#zoompopup').is(':visible')) mainmap = true
     var icon = $(this)
@@ -1543,7 +1550,7 @@ function edit_mapimage(e)
     var filetr = $(this).closest('tr')
     var imgname = filetr.attr('data-name')
     if (imgname) {
-        $('#map').addClass('editing')
+        $(document.body).addClass('editingmap')
         // Get all the paths from the server to start the edit
         socket.emit('mapedit', { name: imgname }, filetr.attr('data-page'))
     }
@@ -1560,7 +1567,8 @@ function start_mapedit(map, pageid)
     $('#mapeditbuttons').html( '<div class="title">Edit map image</div>'+
         '<div class="button reveal mode">Reveal</div>'+
         '<div class="button hide mode">Hide</div>'+
-        '<div class="button save">Save</div>')
+        '<div class="button save">Save</div>'+
+        '<div class="button cancel">Cancel</div>')
 
     var loaded = false
     $('#map img.editfore').on('load', function(e) {
@@ -1661,3 +1669,13 @@ function save_canvas()
         socket.emit('mapupload', { id: map_id, name: filename, filesize: file.size, fileext: 'png' }, filepage)
     }, 'image/png')
 }
+
+function cancel_canvas()
+{
+    $('#map').html('<img><div id="selector"></div>')
+    $('#map').removeClass('preview')
+    $(document.body).removeClass('editingmap')
+    $('#mapeditbuttons').html('')
+    socket.emit('selectpage', currentpageid)
+}
+

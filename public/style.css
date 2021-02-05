@@ -430,6 +430,7 @@ body.disconnected .noconnection {
     cursor: pointer;
     font-size: 12px;
     padding: 1px 5px;
+    margin: 0px 3px;
     background-color: #ccc;
     border-radius: 4px;
     box-shadow: 1px 1px #888;
@@ -682,8 +683,8 @@ body.frozen #initiative {
     transform-origin: 50% 50%;
 }
 
-#map.editing img,
-#map.editing canvas {
+body.editingmap #map img,
+body.editingmap #map canvas {
     position: absolute;
     top: 0px;
     left: 0px;
@@ -722,10 +723,16 @@ body.frozen #initiative {
     background-color: #77eeaa;
 }
 
-#map.editing canvas {
+body.editingmap #map canvas {
     opacity: 0.5;
 }
 
-#map.editing.preview canvas {
+body.editingmap #map.preview canvas {
     opacity: 1.0;
+}
+
+body.editingmap #markers,
+body.editingmap #zoompopup
+{
+    display: none !important; /* Override ".show" */
 }

@@ -554,11 +554,9 @@ async function do_mapupload(socket, upmap, pageid)
                 await fsp.unlink(mapfolder+'/'+file)
             }
         }
-        const mappath = pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
         socket.emit('mapuploaddata', {
                 id: upmap.id,
                 name: upmap.name,
-                path: mappath,
                 fileext: upmap.fileext,
                 pos: 0
             }, pageid)
@@ -578,11 +576,10 @@ async function do_mapuploaddata(socket, upmap, pageid)
         return
     }
     try {
-        const mappath = pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
-        const mapfullpath = './public/maps/'+mappath
+        const mappath = './public/maps/'+pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
         let cursize = 0
         try {
-            const fstat = await fsp.stat(mapfullpath)
+            const fstat = await fsp.stat(mappath)
             cursize = fstat.size
         } catch (ex) {
             if (ex.code != 'ENOENT') { throw(ex) }
@@ -592,15 +589,14 @@ async function do_mapuploaddata(socket, upmap, pageid)
             socket.emit('message', 'mapupload size mismatch error: '+cursize+' <> '+upmap.pos)
             return
         }
-        console.log('Writing map file', mapfullpath, upmap.data.length, 'at', upmap.pos)
-        await fsp.appendFile(mapfullpath, upmap.data, 'Binary')
+        console.log('Writing map file', mappath, upmap.data.length, 'at', upmap.pos)
+        await fsp.appendFile(mappath, upmap.data, 'Binary')
         diskusagebytes = diskusagebytes + upmap.data.length
         if (!upmap.finished) {
             socket.emit('mapuploaddata', {
                     id: upmap.id,
                     name: upmap.name,
                     fileext: upmap.fileext,
-                    path: mappath,
                     pos: upmap.pos + upmap.data.length
                 }, pageid)
             check_disk()
@@ -622,7 +618,7 @@ async function do_mapuploaddata(socket, upmap, pageid)
                     io.emit('zoom', pages[pageid].zoom, pageid)
                 }
             }
-            console.log('mapupload written', mapfullpath)
+            console.log('mapupload written', mappath)
             save_pages()
             check_disk(true)
         }
