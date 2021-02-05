@@ -106,9 +106,6 @@ function get_pages(pages)
         $('#mapeditbuttons').on('mouseleave', '.button.save', function(e) {
             $('#map').removeClass('preview')
         })
-        $('#map').on('mousedown', 'canvas', select_canvas)
-        $('#map').on('mousedown', 'canvas', select_canvas)
-        $('#map').on('mousedown', 'canvas', select_canvas)
 
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         socket.on('message', function(err) {
@@ -464,7 +461,7 @@ function load()
         show_page({})
         socket.open()
     })
-    $('#map img').on('mousedown', select_map)
+    $('#map').on('mousedown', select_map)
     $('#zoomclose').click(hide_zoom)
     $('#zoomclear').click(clear_zoom)
     $('#zoomoverlay').on('mousedown', select_aoe)
@@ -1421,6 +1418,7 @@ function drag_mapicon(e)
 function select_map(e)
 {
     if (e.which != 1) return
+    if ($(document.body).hasClass('editingmap')) return select_canvas(e)
     if ($('#zoompopup').is(':visible')) return false
     var map = $('#map')
     dragging = { x: e.pageX + map.scrollLeft(), y: e.pageY + map.scrollTop() }
@@ -1607,7 +1605,7 @@ function select_canvas(e)
     if (e.which != 1) return
     var action = $('#mapeditbuttons .mode.selected')
     if (!action.length) return
-    var map = $('#map canvas')
+    var map = $('#map')
     dragging = { x: e.pageX + map.scrollLeft(), y: e.pageY + map.scrollTop() }
     map.on('mousemove', size_canvas).on('mouseup', do_canvas)
     return false
@@ -1627,12 +1625,20 @@ function do_canvas(e)
     $(this).off('mousemove').off('mouseup')
     var rect = selector_pos(e, $('#map img'))
     var fore = $('#map img.editfore')
-    var wsc = fore.prop('naturalWidth')  / fore.width()
-    var hsc = fore.prop('naturalHeight') / fore.height()
+    var imw = fore.prop('naturalWidth')  
+    var imh = fore.prop('naturalHeight') 
+    var wsc = imw / fore.width()
+    var hsc = imh / fore.height()
     rect.x *= wsc
     rect.y *= hsc
     rect.w *= wsc
     rect.h *= hsc
+    if (rect.x < 0  ) rect.x = 0
+    if (rect.x > imw) rect.x = imw
+    if (rect.y < 0  ) rect.y = 0
+    if (rect.y > imh) rect.y = imh
+    if (rect.w > (imw - rect.x)) rect.w = imw - rect.x
+    if (rect.h > (imh - rect.y)) rect.h = imh - rect.y
     $('#selector').hide()
     var canvas = document.getElementById('editcanvas')
     var ctx = canvas.getContext('2d')

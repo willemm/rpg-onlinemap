@@ -18,17 +18,17 @@ table {
     width: calc(100vw - 380px);
     overflow: auto;
     margin: 0;
-    padding: 0;
+    padding: 20px;
     /* Make selection box work */
     position: absolute;
-    left: 360px;
-    top: 20px;
+    left: 340px;
+    top: 0px;
 }
 
 #map img {
     display: block;
-    max-width: 100%;
-    max-height: 100%;
+    max-width: calc(100% - 40px);
+    max-height: calc(100% - 10px);
     margin: auto;
 }
 
@@ -686,10 +686,10 @@ body.frozen #initiative {
 body.editingmap #map img,
 body.editingmap #map canvas {
     position: absolute;
-    top: 0px;
-    left: 0px;
-    max-width: 100%;
-    max-height: 100%;
+    top: 20px;
+    left: 20px;
+    max-width: calc(100% - 40px);
+    max-height: calc(100% - 50px);
     margin: auto;
 }
 
