@@ -76,6 +76,7 @@ table {
     position: absolute;
     display: none;
     border: 2px dashed #000;
+    pointer-events: none;
 }
 
 #zoompopup {
@@ -681,3 +682,50 @@ body.frozen #initiative {
     transform-origin: 50% 50%;
 }
 
+#map.editing img,
+#map.editing canvas {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    max-width: 100%;
+    max-height: 100%;
+    margin: auto;
+}
+
+#mapeditbuttons {
+    font-size: 20px;
+    position: fixed;
+    top: 30px;
+    right: calc(100vw - 355px);
+    z-index: 100;
+    background-color: rgba(200, 200, 200, 0.8);
+    border-radius: 20px 0 0 20px;
+}
+
+#mapeditbuttons .title {
+    margin: 10px;
+    font-size: 14px;
+}
+
+#mapeditbuttons .button {
+    height: 20px;
+    border: 1px solid black;
+    border-radius: 10px;
+    padding: 5px 10px;
+    margin: 20px;
+    text-align: left;
+    background-color: #cccccc;
+    cursor: pointer;
+}
+
+#mapeditbuttons .button.selected {
+    background-color: #77eeaa;
+}
+
+#map.editing canvas {
+    opacity: 0.5;
+}
+
+#map.editing.preview canvas {
+    opacity: 1.0;
+}

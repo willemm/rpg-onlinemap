@@ -77,6 +77,7 @@ function get_pages(pages)
         $('#fileupload').on('change', 'input.active', select_mapfile)
         $('#fileupload').on('click', '.remove.button.confirm', remove_map)
         $('#fileupload').on('click', '.remove.button', confirm_remove_map)
+        $('#fileupload').on('click', '.edit.button', edit_mapimage)
         $('#ini-title').on('click', '.editbutton', edit_characters)
 
         $('#configbutton').click(function(e) { $('#configurations .configs').toggle() })
@@ -93,12 +94,28 @@ function get_pages(pages)
         $('#markers').on('mousedown', '.mapiconmenu .scaleicon', scale_mapicon)
         $('#markers').on('mousedown', '.mapiconmenu .rotateicon', rotate_mapicon)
 
+        $('#mapeditbuttons').on('click', '.button.mode', function(e) {
+            $('#mapeditbuttons .button.mode').removeClass('selected')
+            $(this).addClass('selected')
+        })
+        $('#mapeditbuttons').on('click', '.button.save', save_canvas)
+        $('#mapeditbuttons').on('mouseenter', '.button.save', function(e) {
+            $('#map.editing').addClass('preview')
+        })
+        $('#mapeditbuttons').on('mouseleave', '.button.save', function(e) {
+            $('#map.editing').removeClass('preview')
+        })
+        $('#map').on('mousedown', 'canvas', select_canvas)
+        $('#map').on('mousedown', 'canvas', select_canvas)
+        $('#map').on('mousedown', 'canvas', select_canvas)
+
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         socket.on('message', function(err) {
             alert(err)
         })
         socket.on('mapuploaddata', upload_map_data)
         socket.on('iconuploaddata', upload_icon_data)
+        socket.on('mapedit', start_mapedit)
     }
     var options = []
     for (var p = 0; p < pages.length; p++) {
@@ -335,7 +352,8 @@ function set_icon(mapicon, pageid)
     }
 }
 
-function set_pagetitle(pagetitle, pageid) {
+function set_pagetitle(pagetitle, pageid)
+{
     if (pageid == currentpageid) {
         document.title = pagetitle || 'New session'
         $('#pagetitle').attr('data-page', pageid)
@@ -347,7 +365,8 @@ function set_pagetitle(pagetitle, pageid) {
     }
 }
 
-function set_freeze(frozen, pageid) {
+function set_freeze(frozen, pageid)
+{
     if (pageid == currentpageid) {
         if (frozen) {
             $(document.body).addClass('frozen')
@@ -423,7 +442,8 @@ function set_map(map, pageid)
     }
 }
 
-function load() {
+function load()
+{
     $(window).on('hashchange', function(e) {
         socket.close()
         currentpageid = null
@@ -839,6 +859,7 @@ function add_mapfile(map, pageid)
                               '<td><label><div class="upload button">browse</div>'+
                               '<input name="mapimage" type="file" class="uploadfile" value="Map" '+
                               'accept=".jpg,.png,.gif,image/*"></label></td>'+
+                              '<td class="editmap"><div class="edit button">Edit</div></td>'+
                               '<td class="removemap"><div class="remove button">X</div></td>'+
                            '</tr>').insertBefore('#fileupload tr.mapuploadnew')
         }
@@ -897,6 +918,12 @@ function upload_map_data(datareq, pageid)
             }, pageid)
             filetr.removeClass('uploading')
             filetr.find('div.upload.button').text('browse')
+            var editmap = $('#editcanvas[data-page="'+pageid+'"][data-name="'+datareq.name+'"]')
+            if (editmap.length) {
+                $('#map').html('<img src="maps/'+datareq.path+'"><div id="selector"></div>')
+                $('#map').removeClass('preview editing')
+                $('#mapeditbuttons').html('')
+            }
             delete uploads[pageid+'/'+datareq.id]
         }
         upl.reader.readAsArrayBuffer(upl.file.slice(datareq.pos))
@@ -934,7 +961,8 @@ function upload_map(e)
         filetr.attr('data-name', inputval)
         filetr.attr('data-page', currentpageid)
         nameinput.closest('td').text(inputval)
-        filetr.append('<td class="removemap"><div class="remove button">X</div></td>')
+        filetr.append('<td class="editmap"><div class="edit button">Edit</div></td>'+
+            '<td class="removemap"><div class="remove button">X</div></td>')
     }
     var filename = filetr.attr('data-name')
     var filepage = filetr.attr('data-page')
@@ -1383,7 +1411,8 @@ function drag_mapicon(e)
     return false
 }
 
-function select_map(e) {
+function select_map(e)
+{
     if (e.which != 1) return
     if ($('#zoompopup').is(':visible')) return false
     var map = $('#map')
@@ -1392,7 +1421,8 @@ function select_map(e) {
     return false
 }
 
-function selector_pos(e, elem) {
+function selector_pos(e, elem)
+{
     var x1 = dragging.x
     var y1 = dragging.y
     var x2 = e.pageX + elem.scrollLeft()
@@ -1407,14 +1437,16 @@ function selector_pos(e, elem) {
     return { x: x1, y: y1, w: w, h: h }
 }
 
-function size_map(e) {
+function size_map(e)
+{
     // Related to '#map' because that's where the zoombox overlay is
     var sp = selector_pos(e, $('#map'))
     $('#selector').show().css({left:sp.x+'px',top:sp.y+'px',width:sp.w+'px',height:sp.h+'px'})
     return false
 }
 
-function show_zoom(e) {
+function show_zoom(e)
+{
     // Related to '#map img' because that's the image itself
     $(this).off('mousemove').off('mouseup')
     var zoom = selector_pos(e, $('#map img'))
@@ -1504,4 +1536,128 @@ function formatBytes(bytes, decimals = 2)
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+function edit_mapimage(e)
+{
+    var filetr = $(this).closest('tr')
+    var imgname = filetr.attr('data-name')
+    if (imgname) {
+        $('#map').addClass('editing')
+        // Get all the paths from the server to start the edit
+        socket.emit('mapedit', { name: imgname }, filetr.attr('data-page'))
+    }
+}
+
+function start_mapedit(map, pageid)
+{
+    if (pageid != currentpageid) { return }
+    // TODO: Background image, generate or use
+    $('#map').html('<img class="editfore" src="maps/'+map.fore+'">'+
+        '<canvas id="editcanvas" data-page="'+pageid+
+        '" data-name="'+map.name+'"></canvas>'+
+        '<div id="selector"></div>')
+    $('#mapeditbuttons').html( '<div class="title">Edit map image</div>'+
+        '<div class="button reveal mode">Reveal</div>'+
+        '<div class="button hide mode">Hide</div>'+
+        '<div class="button save">Save</div>')
+
+    var loaded = false
+    $('#map img.editfore').on('load', function(e) {
+        if (loaded) { return }
+        var canvas = document.getElementById('editcanvas')
+        var ctx = canvas.getContext('2d')
+        var w = this.naturalWidth
+        var h = this.naturalHeight
+        canvas.width = w
+        canvas.height = h
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, w, h)
+    })
+    if (map.file) {
+        var mapfiles = $('#mapfiles')
+        if (!mapfiles.length) {
+            mapfiles = $('<div id="mapfiles" style="display: none">'+
+                '<img class="editfile">').appendTo(document.body)
+            mapfiles.find('img').on('load', function(e) {
+                loaded = true
+                var canvas = document.getElementById('editcanvas')
+                var ctx = canvas.getContext('2d')
+                var w = this.naturalWidth
+                var h = this.naturalHeight
+                canvas.width = w
+                canvas.height = h
+                ctx.drawImage(this, 0, 0)
+            })
+        }
+        mapfiles.find('img').attr('src', 'maps/'+map.file)
+    }
+}
+
+function select_canvas(e)
+{
+    if (e.which != 1) return
+    var action = $('#mapeditbuttons .mode.selected')
+    if (!action.length) return
+    var map = $('#map canvas')
+    dragging = { x: e.pageX + map.scrollLeft(), y: e.pageY + map.scrollTop() }
+    map.on('mousemove', size_canvas).on('mouseup', do_canvas)
+    return false
+}
+
+function size_canvas(e)
+{
+    // Related to '#map' because that's where the zoombox overlay is
+    var sp = selector_pos(e, $('#map'))
+    $('#selector').show().css({left:sp.x+'px',top:sp.y+'px',width:sp.w+'px',height:sp.h+'px'})
+    return false
+}
+
+function do_canvas(e)
+{
+    // Related to '#map img' because that's the image itself
+    $(this).off('mousemove').off('mouseup')
+    var rect = selector_pos(e, $('#map img'))
+    var fore = $('#map img.editfore')
+    var wsc = fore.prop('naturalWidth')  / fore.width()
+    var hsc = fore.prop('naturalHeight') / fore.height()
+    rect.x *= wsc
+    rect.y *= hsc
+    rect.w *= wsc
+    rect.h *= hsc
+    $('#selector').hide()
+    var canvas = document.getElementById('editcanvas')
+    var ctx = canvas.getContext('2d')
+    var action = $('#mapeditbuttons .mode.selected')
+    if (action.hasClass('reveal')) {
+        if (fore.length) {
+            ctx.drawImage(fore[0], rect.x, rect.y, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h)
+        }
+    }
+    if (action.hasClass('hide')) {
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
+    }
+}
+
+function save_canvas()
+{
+    var canvas = document.getElementById('editcanvas')
+    var filename = $(canvas).attr('data-name')
+    var filepage = $(canvas).attr('data-page')
+    var filetr = $('#fileupload tr.mapupload[data-page="'+filepage+'"][data-name="'+filename+'"]')
+    canvas.toBlob(function(file) {
+        if (file.size > 10000000) {
+            alert('File '+filename+' too big: '+formatBytes(file.size))
+            filetr.addClass('failed')
+            return
+        }
+        var reader = new FileReader()
+        var map_id = get_uid()
+        uploads[filepage+'/'+map_id] = {
+            reader: reader,
+            file: file
+        }
+        socket.emit('mapupload', { id: map_id, name: filename, filesize: file.size, fileext: 'png' }, filepage)
+    }, 'image/png')
 }

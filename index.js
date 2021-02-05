@@ -151,6 +151,11 @@ io.on('connection', function(socket) {
                 if (pages[pageid].frozen) { return }
                 do_mapremove(socket, map, pageid)
             })
+            socket.on('mapedit', (map, pageid) => {
+                if (!pages[pageid] || pages[pageid].owner != admin) { return }
+                if (pages[pageid].frozen) { return }
+                do_mapedit(socket, map, pageid)
+            })
             socket.on('iconupload', (upicon) => {
                 do_iconupload(socket, upicon, admin)
             })
@@ -543,15 +548,17 @@ async function do_mapupload(socket, upmap, pageid)
     try {
         await fsp.mkdir(mapfolder, { recursive: true })
         for (const file of await fsp.readdir(mapfolder)) {
-            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            const m = file.match(/^(.*?)-[0-9a-z][0-9a-z]+\.(jpeg|jpg|gif|png)$/i)
             if (m && m[1] == upmap.name) {
                 console.log('Removing for upload', mapfolder+'/'+file)
                 await fsp.unlink(mapfolder+'/'+file)
             }
         }
+        const mappath = pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
         socket.emit('mapuploaddata', {
                 id: upmap.id,
                 name: upmap.name,
+                path: mappath,
                 fileext: upmap.fileext,
                 pos: 0
             }, pageid)
@@ -571,10 +578,11 @@ async function do_mapuploaddata(socket, upmap, pageid)
         return
     }
     try {
-        const mappath = './public/maps/'+pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
+        const mappath = pageid+'/'+upmap.name+'-'+upmap.id+'.'+upmap.fileext
+        const mapfullpath = './public/maps/'+mappath
         let cursize = 0
         try {
-            const fstat = await fsp.stat(mappath)
+            const fstat = await fsp.stat(mapfullpath)
             cursize = fstat.size
         } catch (ex) {
             if (ex.code != 'ENOENT') { throw(ex) }
@@ -584,14 +592,15 @@ async function do_mapuploaddata(socket, upmap, pageid)
             socket.emit('message', 'mapupload size mismatch error: '+cursize+' <> '+upmap.pos)
             return
         }
-        console.log('Writing map file', mappath, upmap.data.length, 'at', upmap.pos)
-        await fsp.appendFile(mappath, upmap.data, 'Binary')
+        console.log('Writing map file', mapfullpath, upmap.data.length, 'at', upmap.pos)
+        await fsp.appendFile(mapfullpath, upmap.data, 'Binary')
         diskusagebytes = diskusagebytes + upmap.data.length
         if (!upmap.finished) {
             socket.emit('mapuploaddata', {
                     id: upmap.id,
                     name: upmap.name,
                     fileext: upmap.fileext,
+                    path: mappath,
                     pos: upmap.pos + upmap.data.length
                 }, pageid)
             check_disk()
@@ -607,13 +616,13 @@ async function do_mapuploaddata(socket, upmap, pageid)
             }
             io.emit('mapfile', map, pageid)
             if (pages[pageid].zoom && pages[pageid].zoom.src) {
-                zoomre = new RegExp('^maps/'+pageid+'/'+map.name+'\\-[0-9a-z]*\\.(jpeg|jpg|gif|png)$')
+                zoomre = new RegExp('^maps/'+pageid+'/'+map.name+'\\-[0-9a-z][0-9a-z]+\\.(jpeg|jpg|gif|png)$')
                 if (pages[pageid].zoom.src.match(zoomre)) {
                     pages[pageid].zoom.src = 'maps/'+map.path
                     io.emit('zoom', pages[pageid].zoom, pageid)
                 }
             }
-            console.log('mapupload written', mappath)
+            console.log('mapupload written', mapfullpath)
             save_pages()
             check_disk(true)
         }
@@ -629,7 +638,7 @@ async function do_mapremove(socket, map, pageid)
     try {
         let done = false
         for (const file of await fsp.readdir('./public/maps/'+pageid)) {
-            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            const m = file.match(/^(.*?)-[0-9a-z][0-9a-z]+(?:-[bf])?\.(jpeg|jpg|gif|png)$/i)
             if (m && m[1] == map.name) {
                 const mappath = './public/maps/'+pageid+'/'+file
                 console.log('Removing mapfile '+mappath)
@@ -649,6 +658,73 @@ async function do_mapremove(socket, map, pageid)
     } catch (ex) {
         console.log('error deleting map', ex)
         socket.emit('message', 'Error deleting map: '+ex)
+    }
+}
+
+async function do_mapedit(socket, map, pageid)
+{
+    /*
+     * When the dm clicks 'edit', check if the map has already been edited
+     * An edited map has multiple files:
+     * - <mapname>-<id1>-f.<ext> : The complete map
+     * - <mapname>-<id1>-b.<ext> : An empty map (optional)
+     * - <mapname>-<id2>.<ext>   : The resulting edit (will be sent to players)
+     *
+     * A non-edited map just has the one file:
+     * - <mapname>-<id>.<ext>
+     *
+     * The first time, copy map image to map-<id1>-f (new id)
+     * When saving, the save will generate id2 for the resulting edit
+     *
+     * This function will start the edit, i.e. it will generate the f and b files
+     *  and send all the paths to the client to start the edit
+     */
+
+    const mapfolder = './public/maps/'+pageid
+
+    try {
+        // Find all the edit files
+        let mapfile = null
+        let mapfore = null
+        let mapback = null
+        for (const file of await fsp.readdir(mapfolder)) {
+            const m = file.match(/^(.*?)-[0-9a-z][0-9a-z]+(?:-(f|b))?\.(jpeg|jpg|gif|png)$/i)
+            if (m && m[1] == map.name) {
+                console.log('dbg found', file)
+                if (m[2] == 'f') {
+                    mapfore = file
+                } else if (m[2] == 'b') {
+                    mapback = file
+                } else {
+                    mapfile = file
+                }
+            }
+        }
+        console.log('dbg found files', mapfore, mapback, mapfile)
+        if (!mapfile && !mapfore) {
+            socket.emit('message', 'mapedit map '+map.name+' not found')
+            return
+        }
+        if (!mapfore) {
+            const m = mapfile.match(/^(.*?)-[0-9a-z][0-9a-z]+\.(jpeg|jpg|gif|png)$/i)
+            mapfore = m[1]+'-'+get_uid()+'-f.'+m[2]
+            console.log('dbg copy', mapfile, mapfore)
+            await fsp.rename(mapfolder+'/'+mapfile, mapfolder+'/'+mapfore)
+            mapfile = null
+            // await fsp.copyFile(mapfolder+'/'+mapfile, mapfolder+'/'+mapfore)
+        }
+        socket.emit('mapedit', {
+            name: map.name,
+            fore: pageid+'/'+mapfore,
+            back: (mapback ? pageid+'/'+mapback : null),
+            file: (mapfile ? pageid+'/'+mapfile : null)
+        }, pageid)
+    } catch (ex) {
+        if (ex.code != 'ENOENT') {
+            console.log('mapedit error', ex)
+            socket.emit('message', 'mapedit error on '+map.name+': '+ex)
+        }
+        return
     }
 }
 
@@ -767,7 +843,7 @@ async function do_map(socket, map, pageid)
 {
     try {
         for (const file of await fsp.readdir('./public/maps/'+pageid)) {
-            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            const m = file.match(/^(.*?)-[0-9a-z][0-9a-z]+\.(jpeg|jpg|gif|png)$/i)
             if (m) {
                 if (m[1] == map.name) {
                     pages[pageid].map = {
@@ -792,9 +868,10 @@ async function do_selectpage(socket, pageid)
     socket.emit('page', pages[pageid], pageid)
     try {
         for (const file of await fsp.readdir('./public/maps/'+pageid)) {
-            const m = file.match(/^(.*?)-[0-9a-z]*\.(jpeg|jpg|gif|png)$/i)
+            const m = file.match(/^(.*?)-[0-9a-z][0-9a-z]+(?:-f)?\.(jpeg|jpg|gif|png)$/i)
             if (m) {
                 const mapname = m[1]
+                const mapext = m[2]
                 const mappath = pageid+'/'+file
                 socket.emit('mapfile', { name: mapname, path: mappath }, pageid)
             }
