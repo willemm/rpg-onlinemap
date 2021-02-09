@@ -326,9 +326,11 @@ io.on('connection', function(socket) {
             if (marker.imy != undefined) {
                 pages[pageid].markers[marker.id].imy = marker.imy
             }
+            /* Disabled: Race condition with marker numbering, and not actually used anyway
             if (marker.text != undefined) {
                 pages[pageid].markers[marker.id].text = marker.text
             }
+            */
             if ((pages[pageid].owner == admin) && (marker.cls != undefined)) {
                 pages[pageid].markers[marker.id].cls = marker.cls
             }

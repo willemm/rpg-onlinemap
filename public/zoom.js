@@ -872,6 +872,11 @@ function add_mapfile(map, pageid)
                               '<td class="removemap"><div class="remove button">X</div></td>'+
                            '</tr>').insertBefore('#fileupload tr.mapuploadnew')
         }
+        var ec = $('#editcanvas[data-page="'+pageid+'"][data-name="'+map.name+'"]')
+        if (ec.length) {
+            // Cancel edit when we receive an update on that map
+            cancel_canvas()
+        }
     }
     if (map.name.match(/^[A-Za-z0-9_-]+$/)) {
         $('.backgroundimage-'+map.name).css({'background-image': 'url("maps/'+map.path+'")'})
@@ -1188,7 +1193,9 @@ function size_aoe_square(e)
     xc -= mappos.left
     yc -= mappos.top
 
-    $('#zoomoverlay div.aoe.dragging').css({left:xc+'px',top:yc+'px',width:xs+'px',height:ys+'px'})
+    var aoe = $('#zoomoverlay div.aoe.dragging')
+    aoe.css({left:xc+'px',top:yc+'px',width:xs+'px',height:ys+'px'})
+    emit_area(aoe)
     return false
 }
 
@@ -1201,7 +1208,7 @@ function show_aoe_square(e)
     var aoe = $('#zoomoverlay div.aoe.dragging')
     aoe.removeClass('dragging')
 
-    emit_area(aoe)
+    emit_area(aoe, true)
     return false
 }
 
@@ -1221,7 +1228,9 @@ function size_aoe_circle(e)
     xc -= mappos.left
     yc -= mappos.top
 
-    $('#zoomoverlay div.aoe.dragging').css({left:xc+'px',top:yc+'px',width:sz+'px',height:sz+'px'})
+    var aoe = $('#zoomoverlay div.aoe.dragging')
+    aoe.css({left:xc+'px',top:yc+'px',width:sz+'px',height:sz+'px'})
+    emit_area(aoe)
     return false
 }
 
@@ -1235,27 +1244,31 @@ function show_aoe_circle(e)
     var aoe = $('#zoomoverlay div.aoe.dragging')
     aoe.removeClass('dragging')
 
-    emit_area(aoe)
+    emit_area(aoe, true)
     return false
 }
 
-function emit_area(aoe)
+function emit_area(aoe, force = false)
 {
-    var of = aoe.offset()
-    var imx = (of.left - zoompos.x) / zoompos.w
-    var imy = (of.top  - zoompos.y) / zoompos.h
-    var imw = aoe.width() / zoompos.w
-    var imh = aoe.height() / zoompos.h
-    socket.emit('area', {
-        id:    aoe.attr('data-id'),
-        cls:   aoe.attr('class'),
-        imx:   imx,
-        imy:   imy,
-        imw:   imw,
-        imh:   imh,
-        color: aoe.attr('data-color'),
-        player: true
-    }, aoe.attr('data-page'))
+    var now = new Date().getTime()
+    if ((nextmovesend < now) || force) {
+        var of = aoe.offset()
+        var imx = (of.left - zoompos.x) / zoompos.w
+        var imy = (of.top  - zoompos.y) / zoompos.h
+        var imw = aoe.width() / zoompos.w
+        var imh = aoe.height() / zoompos.h
+        socket.emit('area', {
+            id:    aoe.attr('data-id'),
+            cls:   aoe.attr('class').replace(/(^| )dragging( |$)/g, ' ').replace(/   */g, ' ').trim(),
+            imx:   imx,
+            imy:   imy,
+            imw:   imw,
+            imh:   imh,
+            color: aoe.attr('data-color'),
+            player: true
+        }, aoe.attr('data-page'))
+        nextmovesend = now + 200
+    }
 }
 
 function start_marker(e)
