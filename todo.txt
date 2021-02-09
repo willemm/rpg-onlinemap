@@ -1,1 +1,2 @@
-- Area effect over sluitknop zorgt dat ie niet meer klikbaar is
+- aan de DM kant (optie) de 'volledige' kaart ook tonen (ghosted)
+- Bug: Soms bij edit/saven lijkt de file vernaggeld te raken
