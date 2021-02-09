@@ -1561,7 +1561,7 @@ function start_mapedit(map, pageid)
     $('#map').html('<img class="editfore" src="maps/'+map.fore+'">'+
         '<canvas id="editcanvas" data-page="'+pageid+
         '" data-name="'+map.name+'"></canvas>'+
-        '<div id="selector"></div>')
+        '<svg id="selectorsvg"></svg>')
     $('#mapeditbuttons').html( '<div class="title">Edit map image</div>'+
         '<div class="button reveal mode">Reveal</div>'+
         '<div class="button hide mode">Hide</div>'+
@@ -1600,29 +1600,182 @@ function start_mapedit(map, pageid)
     }
 }
 
+var select_canvas_to = 0
+var select_canvas_points
+var select_canvas_pressed = false
+
 function select_canvas(e)
 {
     if (e.which != 1) return
     var action = $('#mapeditbuttons .mode.selected')
     if (!action.length) return
-    var map = $('#map')
-    dragging = { x: e.pageX + map.scrollLeft(), y: e.pageY + map.scrollTop() }
-    map.on('mousemove', size_canvas).on('mouseup', do_canvas)
-    return false
+    var poly = $('#selectorsvg polygon.selectbox')
+    if (poly.length) {
+        var svg = $('#selectorsvg')
+        var svgoff = svg.offset()
+        var x = e.pageX+svg.scrollLeft()-svgoff.left
+        var y = e.pageY+svg.scrollTop() -svgoff.top
+        select_canvas_points[select_canvas_points.length-1] = x+','+y
+        select_canvas_points.push(x+','+y)
+        poly.attr('points', select_canvas_points.join(' '))
+        select_canvas_pressed = true
+        return false
+    } else {
+        select_canvas_to = new Date().getTime() + 200
+        var map = $('#map')
+        dragging = { x: e.pageX + map.scrollLeft(), y: e.pageY + map.scrollTop() }
+        map.on('mousemove', size_canvas).on('mouseup', do_canvas)
+        return false
+    }
 }
 
 function size_canvas(e)
 {
     // Related to '#map' because that's where the zoombox overlay is
     var sp = selector_pos(e, $('#map'))
-    $('#selector').show().css({left:sp.x+'px',top:sp.y+'px',width:sp.w+'px',height:sp.h+'px'})
+    // $('#selector').show().css({left:sp.x+'px',top:sp.y+'px',width:sp.w+'px',height:sp.h+'px'})
+    var selectrect = $('#selectorsvg rect.selectbox')
+    if (!selectrect.length) {
+        $('#selectorsvg').html('<rect class="selectbox" x="'+sp.x+'" y="'+sp.y+'" width="'+sp.w+'" height="'+sp.h+'" />')
+    } else {
+        selectrect.attr('x', sp.x)
+        selectrect.attr('y', sp.y)
+        selectrect.attr('width', sp.w)
+        selectrect.attr('height', sp.h)
+    }
     return false
+}
+
+function size_canvas_poly(e)
+{
+    var svg = $('#selectorsvg')
+    var svgoff = svg.offset()
+    var x = e.pageX+svg.scrollLeft()-svgoff.left
+    var y = e.pageY+svg.scrollTop() -svgoff.top
+    if (select_canvas_pressed && (select_canvas_points.length >= 2)) {
+        var ppm = select_canvas_points[select_canvas_points.length-2].match(/^([0-9]+),([0-9]+)$/)
+        var px = parseInt(ppm[1])
+        var py = parseInt(ppm[2])
+        if (((px-x)*(px-x)+(py-y)*(py-y)) > 16) {
+            select_canvas_points.push(x+','+y)
+        } else {
+            select_canvas_points[select_canvas_points.length-1] = x+','+y
+        }
+    } else {
+        select_canvas_points[select_canvas_points.length-1] = x+','+y
+    }
+    $('#selectorsvg polygon.selectbox').attr('points', select_canvas_points.join(' '))
+}
+
+function stop_canvas_poly(e)
+{
+    $('#map').off('mousemove').off('mouseup').off('mouseleave')
+    $('#selectorsvg').html('')
+    return false
+}
+
+function size_canvas_mouseup(e)
+{
+    select_canvas_pressed = false
+    if (new Date().getTime() < select_canvas_to) {
+        stop_canvas_poly()
+        do_canvas_poly(select_canvas_points)
+        return false
+    }
+    select_canvas_to = new Date().getTime() + 200
+}
+
+// Copy the area inside the selected polygon
+function do_canvas_poly(points)
+{
+    var action = $('#mapeditbuttons .mode.selected')
+    var fore = $('#map img.editfore')
+    if (!fore.length) return
+    var imw = fore.prop('naturalWidth')  
+    var imh = fore.prop('naturalHeight') 
+    // Scale factors
+    var wsc = imw / fore.width()
+    var hsc = imh / fore.height()
+    var foreoff = fore.offset()
+    var mapoff = $('#map').offset()
+    var xof = foreoff.left - mapoff.left 
+    var yof = foreoff.top  - mapoff.top 
+
+    // Turn into integer pairs and scale
+    for (var pi = 0; pi < points.length; pi++) {
+        var ppm = points[pi].match(/^([0-9]+),([0-9]+)$/)
+        var px = (parseInt(ppm[1]) - xof) * wsc
+        var py = (parseInt(ppm[2]) - yof) * hsc
+        points[pi] = [px,py]
+    }
+    // Close the loop
+    points.push(points[0])
+
+    // Array of points: One per poly-line per scanline, indexed by scanline
+    var pixels = {}
+    for (var pi = 0; pi < points.length-1; pi++) {
+        var x1 = points[pi][0]
+        var y1 = points[pi][1]
+        var x2 = points[pi+1][0]
+        var y2 = points[pi+1][1]
+        // Swap so x1,y1 is higher
+        if (y2 < y1) {
+            var s = x1
+            x1 = x2
+            x2 = s
+            s = y1
+            y1 = y2
+            y2 = s
+        }
+        for (var y = Math.ceil(y1); y < y2; y++) {
+            var x = x1 + ((x2-x1) * ((y-y1)/(y2-y1)))
+
+            pixels[y] ||= []
+            pixels[y].push(x)
+        }
+    }
+    var canvas = document.getElementById('editcanvas')
+    var ctx = canvas.getContext('2d')
+    if (action.hasClass('reveal')) {
+        var img = fore[0]
+        for (var py in pixels) {
+            var line = pixels[py].sort(function(a,b) { return a-b })
+            for (var xi = 0; xi < line.length; xi += 2) {
+                var px = Math.floor(line[xi])
+                var pw = Math.ceil(line[xi+1])-px
+                ctx.drawImage(img, px, py, pw, 1, px, py, pw, 1)
+            }
+        }
+    } else if (action.hasClass('hide')) {
+        ctx.fillStyle = "#ffffff"
+        for (var py in pixels) {
+            var line = pixels[py].sort(function(a,b) { return a-b })
+            for (var xi = 0; xi < line.length; xi += 2) {
+                var px = Math.floor(line[xi])
+                var pw = Math.ceil(line[xi+1])-px
+                ctx.fillRect(px, py, pw, 1)
+            }
+        }
+    }
 }
 
 function do_canvas(e)
 {
-    // Related to '#map img' because that's the image itself
     $(this).off('mousemove').off('mouseup')
+
+    // Fast click = do polygon select
+    if (new Date().getTime() < select_canvas_to) {
+        var svg = $('#selectorsvg')
+        var svgoff = svg.offset()
+        var x = e.pageX+svg.scrollLeft()-svgoff.left
+        var y = e.pageY+svg.scrollTop() -svgoff.top
+        select_canvas_points = [(dragging.x-svgoff.left)+','+(dragging.y-svgoff.top), x+','+y]
+        svg.html('<polygon class="selectbox" points="'+select_canvas_points.join(' ')+'"/>')
+        $(this).on('mousemove', size_canvas_poly).on('mouseup', size_canvas_mouseup).on('mouseleave', stop_canvas_poly)
+        return false
+    }
+
+    // Related to '#map img' because that's the image itself
     var rect = selector_pos(e, $('#map img'))
     var fore = $('#map img.editfore')
     var imw = fore.prop('naturalWidth')  
@@ -1639,16 +1792,13 @@ function do_canvas(e)
     if (rect.y > imh) rect.y = imh
     if (rect.w > (imw - rect.x)) rect.w = imw - rect.x
     if (rect.h > (imh - rect.y)) rect.h = imh - rect.y
-    $('#selector').hide()
+    $('#selectorsvg').html('')
     var canvas = document.getElementById('editcanvas')
     var ctx = canvas.getContext('2d')
     var action = $('#mapeditbuttons .mode.selected')
     if (action.hasClass('reveal')) {
-        if (fore.length) {
-            ctx.drawImage(fore[0], rect.x, rect.y, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h)
-        }
-    }
-    if (action.hasClass('hide')) {
+        ctx.drawImage(fore[0], rect.x, rect.y, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h)
+    } else if (action.hasClass('hide')) {
         ctx.fillStyle = "#ffffff"
         ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
     }
