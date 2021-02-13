@@ -7,7 +7,7 @@ var adminonly = false
 
 var charclasslist
 
-const socket = io()
+var socket = io()
 setup_socket(socket)
 
 function setup_socket(socket)
@@ -1543,17 +1543,18 @@ function hide_zoom()
     }
 }
 
-function formatBytes(bytes, decimals = 2)
+function formatBytes(bytes)
 {
-    if (bytes === 0) return '0 Bytes';
+    var sizes = ['B', 'KB', 'MB', 'GB']
+    var si = 0
+    while ((Math.abs(bytes) > 1024) && (si < (sizes.length-1))) {
+        bytes = bytes / 1024
+        si = si + 1
+    }
 
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    var bt = Math.floor(bytes * 100) / 100
 
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    return bt+' '+sizes[si]
 }
 
 function edit_mapimage(e)
