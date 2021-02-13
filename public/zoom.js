@@ -1744,7 +1744,9 @@ function do_canvas_poly(points)
         for (var y = Math.ceil(y1); y < y2; y++) {
             var x = x1 + ((x2-x1) * ((y-y1)/(y2-y1)))
 
-            pixels[y] ||= []
+            if (!pixels[y]) {
+                pixels[y] = []
+            }
             pixels[y].push(x)
         }
     }
