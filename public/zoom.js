@@ -94,18 +94,27 @@ function get_pages(pages)
         $('#markers').on('mousedown', '.mapiconmenu .scaleicon', scale_mapicon)
         $('#markers').on('mousedown', '.mapiconmenu .rotateicon', rotate_mapicon)
 
-        $('#mapeditbuttons').on('click', '.button.mode', function(e) {
-            $('#mapeditbuttons .button.mode').removeClass('selected')
+        $('#mapeditbuttons').on('click', '.button.drawmode', function(e) {
+            $('#mapeditbuttons .button.drawmode').removeClass('selected')
             $(this).addClass('selected')
+            $('#selectorsvg').removeClass('hide reveal').addClass($(this).attr('data-drawmode'))
+        })
+        $('#mapeditbuttons').on('click', '.button.selectmode', function(e) {
+            $('#mapeditbuttons .button.selectmode').removeClass('selected')
+            $(this).addClass('selected')
+            $('#brushsize').attr('disabled', ($(this).attr('data-selectmode') != 'brush'))
         })
         $('#mapeditbuttons').on('click', '.button.save', save_canvas)
         $('#mapeditbuttons').on('click', '.button.cancel', cancel_canvas)
+        $('#mapeditbuttons').on('click', '.button.clear', clear_canvas)
         $('#mapeditbuttons').on('mouseenter', '.button.save', function(e) {
             $('#map').addClass('preview')
         })
         $('#mapeditbuttons').on('mouseleave', '.button.save', function(e) {
             $('#map').removeClass('preview')
         })
+        // $('#mapeditbuttons').on('change', '.brush.slider', size_canvas_brush)
+        $('#map').on('mouseenter', start_canvas_brush).on('mouseleave', stop_canvas_brush)
 
         $('#ini-title').prepend('<input type="button" class="editbutton" value="">')
         socket.on('message', function(err) {
@@ -438,7 +447,10 @@ function set_map(map, pageid)
     if (pageid == currentpageid) {
         var editmap = $('#editcanvas')
         if (editmap.length) {
+            /*
             if ((editmap.attr('data-page') == pageid) && (editmap.attr('data-name') == map.name)) {
+                var sb = $('#mapeditbuttons .button.save.selected')
+                if (sb.hasClass('keepopen')) return
                 $('#map').html('<img><div id="selector"></div>')
                 $('#map').removeClass('preview')
                 $(document.body).removeClass('editingmap')
@@ -446,6 +458,8 @@ function set_map(map, pageid)
             } else {
                 return
             }
+            */
+            return
         }
         $('#map img').attr('src', 'maps/'+map.path)
     }
@@ -874,8 +888,12 @@ function add_mapfile(map, pageid)
         }
         var ec = $('#editcanvas[data-page="'+pageid+'"][data-name="'+map.name+'"]')
         if (ec.length) {
+            var sb = $('#mapeditbuttons .button.save.selected')
             // Cancel edit when we receive an update on that map
-            cancel_canvas()
+            if (!sb.hasClass('keepopen')) {
+                cancel_canvas()
+            }
+            sb.removeClass('selected')
         }
     }
     if (map.name.match(/^[A-Za-z0-9_-]+$/)) {
@@ -1577,11 +1595,19 @@ function start_mapedit(map, pageid)
         '" data-name="'+map.name+'"></canvas>'+
         '<svg id="selectorsvg"></svg>')
     $('#mapeditbuttons').html( '<div class="title">Edit map image</div>'+
-        '<div class="button reveal mode">Reveal</div>'+
-        '<div class="button hide mode">Hide</div>'+
+        '<div class="button reveal drawmode" data-drawmode="reveal">Reveal</div>'+
+        '<div class="button hide drawmode" data-drawmode="hide">Hide</div>'+
+        '<div class="button clear">Clear</div>'+
+        '<div class="button rect selectmode" data-selectmode="rect">Rect</div>'+
+        '<div class="button free selectmode" data-selectmode="free">Shape</div>'+
+        '<div class="button brush selectmode" data-selectmode="brush">Brush</div>'+
+        '<div class="brush slider"><input type="range" min="8" max="160" value="20" id="brushsize"></div>'+
         '<div class="button save">Save</div>'+
+        '<div class="button save keepopen">Apply</div>'+
         '<div class="button cancel">Cancel</div>')
 
+    $('#mapeditbuttons .button.reveal').click()
+    $('#mapeditbuttons .button.brush').click()
     var loaded = false
     $('#map img.editfore').on('load', function(e) {
         if (loaded) { return }
@@ -1621,14 +1647,25 @@ var select_canvas_pressed = false
 function select_canvas(e)
 {
     if (e.which != 1) return
-    var action = $('#mapeditbuttons .mode.selected')
-    if (!action.length) return
+    var action = $('#mapeditbuttons .drawmode.selected').attr('data-drawmode')
+    if (!action) return
+    var selectmode = $('#mapeditbuttons .selectmode.selected').attr('data-selectmode')
+    var map = $('#map')
+    var svg = $('#selectorsvg')
+    var svgoff = svg.offset()
+    var x = e.pageX+svg.scrollLeft()-svgoff.left
+    var y = e.pageY+svg.scrollTop() -svgoff.top
+    if (selectmode == 'brush') {
+        return down_canvas_brush(e)
+    }
     var poly = $('#selectorsvg polygon.selectbox')
+    if (!poly.length && selectmode == 'free') {
+        select_canvas_points = [x+','+y]
+        svg.html('<polygon class="selectbox" points="'+select_canvas_points.join(' ')+'"/>')
+        $('#map').on('mousemove', size_canvas_poly).on('mouseup', size_canvas_mouseup).on('mouseleave', stop_canvas_poly)
+        poly = $('#selectorsvg polygon.selectbox')
+    }
     if (poly.length) {
-        var svg = $('#selectorsvg')
-        var svgoff = svg.offset()
-        var x = e.pageX+svg.scrollLeft()-svgoff.left
-        var y = e.pageY+svg.scrollTop() -svgoff.top
         select_canvas_points[select_canvas_points.length-1] = x+','+y
         select_canvas_points.push(x+','+y)
         poly.attr('points', select_canvas_points.join(' '))
@@ -1636,7 +1673,6 @@ function select_canvas(e)
         return false
     } else {
         select_canvas_to = new Date().getTime() + 200
-        var map = $('#map')
         dragging = { x: e.pageX + map.scrollLeft(), y: e.pageY + map.scrollTop() }
         map.on('mousemove', size_canvas).on('mouseup', do_canvas)
         return false
@@ -1691,7 +1727,23 @@ function stop_canvas_poly(e)
 function size_canvas_mouseup(e)
 {
     select_canvas_pressed = false
+    do_finish = false
     if (new Date().getTime() < select_canvas_to) {
+        do_finish = true
+    } else if (select_canvas_points.length > 3) {
+        var lpm = select_canvas_points[select_canvas_points.length-1].match(/^([0-9]+),([0-9]+)$/)
+        var lx = parseInt(lpm[1])
+        var ly = parseInt(lpm[2])
+        var fpm = select_canvas_points[0].match(/^([0-9]+),([0-9]+)$/)
+        var fx = parseInt(fpm[1])
+        var fy = parseInt(fpm[2])
+        if (((lx-fx)*(lx-fx)+(ly-fy)*(ly-fy)) < 256) {
+            do_finish = true
+            select_canvas_points.pop()
+            select_canvas_points.pop()
+        }
+    }
+    if (do_finish) {
         stop_canvas_poly()
         do_canvas_poly(select_canvas_points)
         return false
@@ -1699,10 +1751,140 @@ function size_canvas_mouseup(e)
     select_canvas_to = new Date().getTime() + 200
 }
 
+function down_canvas_brush(e)
+{
+    select_canvas_pressed = true
+    move_canvas_brush(e)
+}
+
+function up_canvas_brush(e)
+{
+    select_canvas_pressed = false
+    move_canvas_brush(e)
+}
+
+function move_canvas_brush(e)
+{
+    var svg = $('#selectorsvg')
+    var svgoff = svg.offset()
+    var x = e.pageX+svg.scrollLeft()-svgoff.left
+    var y = e.pageY+svg.scrollTop() -svgoff.top
+    var brush = $('#selectorsvg circle.selectbox')
+    brush.attr('cx', x)
+    brush.attr('cy', y)
+    var do_draw = false
+    if (select_canvas_pressed) {
+        if (!dragging) {
+            var map = $('#map')
+            dragging = { x: x, y: y }
+            do_draw = true
+        } else {
+            var px = dragging.x
+            var py = dragging.y
+            if (((px-x)*(px-x)+(py-y)*(py-y)) > 16) {
+                do_draw = true
+            }
+        }
+    } else {
+        if (dragging) {
+            do_draw = true
+        }
+    }
+    if (do_draw) {
+        var px = dragging.x
+        var py = dragging.y
+        // Do this here because we're naugthy and mess with x and y variables
+        if (select_canvas_pressed) {
+            dragging = { x: x, y: y }
+        } else {
+            dragging = undefined
+        }
+        var r = parseInt(brush.attr('r'))
+        var points = []
+        var rr = r*r
+        for (var cy = -r+1; cy < r; cy++) {
+            points.push([Math.sqrt(rr - (cy*cy)), cy])
+        }
+        var dx = x-px
+        var dy = y-py
+        if (dx || dy) {
+            if (dy < 0) {
+                // Swap points so px,py is lesser in the y direction
+                x = px
+                px = x + dx
+                y = py
+                py = y + dy
+                dx = -dx
+            }
+            var jy = dx * r / Math.sqrt((dx*dx) + (dy*dy))
+        }
+        for (var pi = points.length; pi-- > 0; ) {
+            var cx = points[pi][0]
+            var cy = points[pi][1]
+            if (cy < -jy) {
+                points[pi] = (px+cx)+","+(py+cy)
+            } else {
+                points[pi] = (x+cx)+","+(y+cy)
+            }
+            if (cy < jy) {
+                points.push((px-cx)+','+(py+cy))
+            } else {
+                points.push((x-cx)+','+(y+cy))
+            }
+        }
+        do_canvas_poly(points)
+    }
+}
+
+function start_canvas_brush(e)
+{
+    select_canvas_pressed = false
+    if (!$(document.body).hasClass('editingmap')) return
+    var selectmode = $('#mapeditbuttons .selectmode.selected').attr('data-selectmode')
+    if (selectmode != 'brush') return
+    dragging = undefined
+    var bs = $('#brushsize').val()
+    var svg = $('#selectorsvg')
+    var svgoff = svg.offset()
+    var x = e.pageX+svg.scrollLeft()-svgoff.left
+    var y = e.pageY+svg.scrollTop() -svgoff.top
+    svg.html('<circle class="selectbox" cx="'+x+'" cy="'+y+'" r="'+bs+'"/>')
+    $('#map').on('mousemove', move_canvas_brush).on('mouseup', up_canvas_brush).on('wheel', size_canvas_brush)
+}
+
+function size_canvas_brush(e)
+{
+    var bs = $('#brushsize')
+    var brush = $('#selectorsvg circle.selectbox')
+    if (brush.length > 0) {
+        var sz = bs.val()
+        if (e.originalEvent.deltaY < 0) {
+            sz++
+            if (sz > bs.attr('max')) sz = bs.attr('max')
+            bs.val(sz)
+        }
+        if (e.originalEvent.deltaY > 0) {
+            sz--
+            if (sz < bs.attr('min')) sz = bs.attr('min')
+            bs.val(sz)
+        }
+        brush.attr('r', bs.val())
+        return false
+    }
+}
+
+function stop_canvas_brush(e)
+{
+    $('#map').off('mousemove').off('mouseup').off('wheel')
+    select_canvas_pressed = false
+    $('#selectorsvg').html('')
+    return false
+}
+
 // Copy the area inside the selected polygon
 function do_canvas_poly(points)
 {
-    var action = $('#mapeditbuttons .mode.selected')
+    var action = $('#mapeditbuttons .drawmode.selected')
     var fore = $('#map img.editfore')
     if (!fore.length) return
     var imw = fore.prop('naturalWidth')  
@@ -1717,9 +1899,9 @@ function do_canvas_poly(points)
 
     // Turn into integer pairs and scale
     for (var pi = 0; pi < points.length; pi++) {
-        var ppm = points[pi].match(/^([0-9]+),([0-9]+)$/)
-        var px = (parseInt(ppm[1]) - xof) * wsc
-        var py = (parseInt(ppm[2]) - yof) * hsc
+        var ppm = points[pi].match(/^([0-9.]+),([0-9.]+)$/)
+        var px = (parseFloat(ppm[1]) - xof) * wsc
+        var py = (parseFloat(ppm[2]) - yof) * hsc
         points[pi] = [px,py]
     }
     // Close the loop
@@ -1778,9 +1960,10 @@ function do_canvas_poly(points)
 function do_canvas(e)
 {
     $(this).off('mousemove').off('mouseup')
+    var selectmode = $('#mapeditbuttons .selectmode.selected').attr('data-selectmode')
 
     // Fast click = do polygon select
-    if (new Date().getTime() < select_canvas_to) {
+    if ((selectmode != 'rect') && (new Date().getTime() < select_canvas_to)) {
         var svg = $('#selectorsvg')
         var svgoff = svg.offset()
         var x = e.pageX+svg.scrollLeft()-svgoff.left
@@ -1808,10 +1991,15 @@ function do_canvas(e)
     if (rect.y > imh) rect.y = imh
     if (rect.w > (imw - rect.x)) rect.w = imw - rect.x
     if (rect.h > (imh - rect.y)) rect.h = imh - rect.y
+    do_canvas_rect(fore, rect)
+}
+
+function do_canvas_rect(fore, rect)
+{
     $('#selectorsvg').html('')
     var canvas = document.getElementById('editcanvas')
     var ctx = canvas.getContext('2d')
-    var action = $('#mapeditbuttons .mode.selected')
+    var action = $('#mapeditbuttons .drawmode.selected')
     if (action.hasClass('reveal')) {
         ctx.drawImage(fore[0], rect.x, rect.y, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h)
     } else if (action.hasClass('hide')) {
@@ -1820,14 +2008,23 @@ function do_canvas(e)
     }
 }
 
+function clear_canvas()
+{
+    var fore = $('#map img.editfore')
+    var imw = fore.prop('naturalWidth')  
+    var imh = fore.prop('naturalHeight') 
+    do_canvas_rect(fore, { x: 0, y: 0, w: imw, h: imh })
+}
+
 function save_canvas()
 {
     var canvas = document.getElementById('editcanvas')
     var filename = $(canvas).attr('data-name')
     var filepage = $(canvas).attr('data-page')
     var filetr = $('#fileupload tr.mapupload[data-page="'+filepage+'"][data-name="'+filename+'"]')
+    $(this).addClass('selected')
     canvas.toBlob(function(file) {
-        if (file.size > 10000000) {
+        if (file.size > 20000000) {
             alert('File '+filename+' too big: '+formatBytes(file.size))
             filetr.addClass('failed')
             return

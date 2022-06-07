@@ -13,7 +13,7 @@ http.listen(80, function() {
 
 const maxpages = process.env.MAX_SESSIONS || 10
 const adminsecrets = (process.env.DUNGEONMASTER_TOKEN || 'test').split(/[, ]+/)
-const maxmapsize  = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 10)
+const maxmapsize  = 1024*1024* (parseInt(process.env.MAX_MAPSIZE_MB) || 16)
 const maxiconsize = 1024*1024* (parseInt(process.env.MAX_ICONSIZE_MB) || 1)
 const maxdiskuse  = 1024*1024* (parseInt(process.env.MAX_DISKUSE_MB) || 256)
 const maxmarkers = process.env.MAX_MARKERS || 1000

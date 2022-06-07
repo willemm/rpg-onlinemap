@@ -696,15 +696,19 @@ body.editingmap #map canvas {
     font-size: 20px;
     position: fixed;
     top: 30px;
-    right: calc(100vw - 355px);
+    left: 355px;
+    transform: translateX(-100%);
     z-index: 100;
     background-color: rgba(200, 200, 200, 0.8);
     border-radius: 20px 0 0 20px;
+    display: grid;
+    grid-template-columns: auto auto auto;
 }
 
 #mapeditbuttons .title {
     margin: 10px;
     font-size: 14px;
+    grid-column: 1/-1;
 }
 
 #mapeditbuttons .button {
@@ -712,7 +716,7 @@ body.editingmap #map canvas {
     border: 1px solid black;
     border-radius: 10px;
     padding: 5px 10px;
-    margin: 20px;
+    margin: 10px;
     text-align: left;
     background-color: #cccccc;
     cursor: pointer;
@@ -722,8 +726,16 @@ body.editingmap #map canvas {
     background-color: #77eeaa;
 }
 
+#mapeditbuttons .brush.slider {
+    grid-column: 1/-1;
+}
+
+#mapeditbuttons .brush.slider input {
+    width: calc(100% - 30px);
+}
+
 body.editingmap #map canvas {
-    opacity: 0.5;
+    opacity: 0.7;
 }
 
 body.editingmap #map.preview canvas {
@@ -750,6 +762,10 @@ body.editingmap #zoompopup
     stroke-width: 2;
     stroke-dasharray: 5,5;
     opacity: 0.5;
-    fill: rgba(0,0,0,0.2);
+    fill: rgba(0,0,0,0.4);
     fill-rule: evenodd;
+}
+
+#selectorsvg.hide .selectbox {
+    fill: rgba(255,255,255,0.7);
 }
